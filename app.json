@@ -21,6 +21,14 @@
       },
       "package": "com.karangtaruna.diy"
     },
-    "scheme": "karangtaruna"
+    "scheme": "karangtaruna",
+    "extra": {
+      "eas": {
+        "projectId": "938b968f-b1b7-474c-8586-54b2cfd16eb3"
+      }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
