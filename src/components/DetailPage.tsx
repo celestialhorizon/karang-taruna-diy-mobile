@@ -9,6 +9,9 @@ import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
+import { BottomNavigation } from './ui/BottomNavigation';
+import { ImageZoomModal } from './ui/ImageZoomModal';
+import { useTheme } from '../context/ThemeContext';
 import apiService from '../services/api';
 
 interface DetailPageProps {
@@ -17,108 +20,16 @@ interface DetailPageProps {
   onNavigate: (page: string) => void;
 }
 
-const tutorialDetails: Record<number, any> = {
-  1: {
-    id: 1,
-    title: 'Cara Memperbaiki Keran Air yang Bocor',
-    description: 'Pelajari teknik dasar memperbaiki keran air yang bocor dengan mudah dan cepat.',
-    category: 'Plambing',
-    difficulty: 'Pemula',
-    duration: '15 menit',
-    type: 'video',
-    image: 'https://images.unsplash.com/photo-1681249537103-9e0c7316d91e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwbHVtYmluZyUyMHJlcGFpciUyMHR1dG9yaWFsfGVufDF8fHx8MTc3MDY2MDMxM3ww&ixlib=rb-4.1.0&q=80&w=1080',
-    tools: ['Kunci Inggris', 'Obeng', 'Seal Karet', 'Kain Lap'],
-    steps: [
-      {
-        title: 'Persiapan dan Keselamatan',
-        content: 'Sebelum memulai perbaikan, pastikan Anda telah mematikan sumber air utama di rumah. Ini sangat penting untuk menghindari kebocoran air yang tidak terkendali saat Anda membongkar keran.',
-        details: [
-          'Cari dan putar valve air utama searah jarum jam hingga tertutup penuh',
-          'Buka keran untuk memastikan air tidak mengalir lagi',
-          'Siapkan ember atau wadah di bawah keran untuk menampung sisa air',
-          'Pastikan area kerja kering dan aman',
-        ],
-        tips: 'Foto posisi keran sebelum dibongkar agar mudah saat memasang kembali',
-        imageUrl: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800',
-        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-      },
-      {
-        title: 'Melepas Pegangan Keran',
-        content: 'Langkah selanjutnya adalah melepas pegangan keran dengan hati-hati menggunakan obeng yang sesuai.',
-        details: [
-          'Cari sekrup kecil di bagian atas atau samping pegangan keran',
-          'Gunakan obeng minus atau plus sesuai jenis sekrup',
-          'Putar sekrup berlawanan arah jarum jam untuk melepas',
-          'Angkat pegangan keran dengan perlahan',
-          'Simpan sekrup di tempat aman agar tidak hilang',
-        ],
-        tips: 'Gunakan magnet kecil untuk menyimpan sekrup agar tidak jatuh ke saluran air',
-      },
-      {
-        title: 'Membuka Komponen Keran',
-        content: 'Setelah pegangan terlepas, Anda akan melihat komponen internal keran yang perlu dibuka.',
-        details: [
-          'Gunakan kunci inggris untuk melepas mur pengunci',
-          'Putar berlawanan arah jarum jam dengan hati-hati',
-          'Angkat cartridge atau valve stem dari dalam keran',
-          'Periksa kondisi seal karet dan O-ring',
-          'Bersihkan area di sekitar komponen dari kotoran',
-        ],
-        tips: 'Lapisi rahang kunci inggris dengan kain agar tidak merusak chrome keran',
-      },
-      {
-        title: 'Mengganti Seal Karet',
-        content: 'Bagian ini adalah inti dari perbaikan - mengganti seal karet yang aus atau rusak.',
-        details: [
-          'Lepaskan seal karet lama dari cartridge dengan hati-hati',
-          'Periksa ukuran seal untuk memastikan pengganti yang tepat',
-          'Bersihkan area dudukan seal dari kerak atau kotoran',
-          'Pasang seal karet baru dengan posisi yang benar',
-          'Pastikan seal terpasang rata dan tidak miring',
-        ],
-        tips: 'Bawa seal lama ke toko untuk mendapatkan ukuran yang pas',
-      },
-      {
-        title: 'Memasang Kembali Komponen',
-        content: 'Setelah seal baru terpasang, saatnya memasang kembali semua komponen keran.',
-        details: [
-          'Masukkan cartridge kembali ke dalam lubang keran',
-          'Pasang dan kencangkan mur pengunci dengan kunci inggris',
-          'Jangan terlalu kencang agar tidak merusak thread',
-          'Pasang kembali pegangan keran',
-          'Kencangkan sekrup pegangan dengan obeng',
-        ],
-        tips: 'Kencangkan dengan feeling - jangan terlalu keras yang bisa merusak komponen',
-      },
-      {
-        title: 'Testing dan Finishing',
-        content: 'Langkah terakhir adalah menguji hasil perbaikan dan memastikan tidak ada kebocoran.',
-        details: [
-          'Buka kembali valve air utama secara perlahan',
-          'Biarkan air mengalir sebentar untuk mengeluarkan udara',
-          'Tutup dan buka keran beberapa kali untuk testing',
-          'Periksa seluruh area keran apakah ada tetesan air',
-          'Lap area keran hingga kering dan bersih',
-        ],
-        tips: 'Tunggu 10-15 menit dan periksa lagi untuk memastikan tidak ada kebocoran lambat',
-      },
-      {
-        title: 'Selesai',
-        content: 'Selamat! Anda telah berhasil memperbaiki keran air yang bocor. Dengan mengikuti langkah-langkah ini dengan teliti, keran Anda seharusnya sudah tidak bocor lagi.',
-        details: [],
-        tips: 'Jika masih bocor setelah diperbaiki, kemungkinan ada komponen lain yang rusak. Konsultasikan dengan ahli plambing.',
-      },
-    ],
-  },
-};
-
 export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
+  const { colors } = useTheme();
   const [tutorial, setTutorial] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
   const [displayTime, setDisplayTime] = useState<number>(0);
+  const [zoomModalVisible, setZoomModalVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const totalTimeSpentRef = useRef<number>(0);
   const sessionStartRef = useRef<number>(Date.now());
   const isReadyRef = useRef<boolean>(false);
@@ -300,14 +211,24 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
     return `${minutes}m`;
   };
 
+  const handleImageZoom = (imageUrl: string) => {
+    setSelectedImageUrl(imageUrl);
+    setZoomModalVisible(true);
+  };
+
+  const closeZoomModal = () => {
+    setZoomModalVisible(false);
+    setSelectedImageUrl(null);
+  };
+
   const diffColor = tutorial ? getDifficultyColor(tutorial.difficulty) : { bg: '#f3f4f6', text: '#374151' };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#dc2626" />
-          <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat tutorial...</Text>
+          <Text style={{ marginTop: 16, color: colors.textSecondary }}>Memuat tutorial...</Text>
         </View>
       </SafeAreaView>
     );
@@ -315,15 +236,15 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
 
   if (!tutorial) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-            <MaterialIcons name="chevron-left" size={28} color="#374151" />
+            <MaterialIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Error</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Error</Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <Text style={{ fontSize: 16, color: '#6b7280', textAlign: 'center' }}>Tutorial tidak ditemukan</Text>
+          <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center' }}>Tutorial tidak ditemukan</Text>
           <Button onPress={() => onNavigate('home')} style={{ marginTop: 16 }}>
             <Text style={{ color: '#fff' }}>Kembali ke Beranda</Text>
           </Button>
@@ -333,16 +254,16 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-            <MaterialIcons name="chevron-left" size={28} color="#374151" />
+            <MaterialIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{tutorial.title || 'Tutorial'}</Text>
-            <Text style={styles.headerSub}>Langkah {currentStep}/{totalSteps} • {progress}% • {formatTime(displayTime)}</Text>
+            <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{tutorial.title || 'Tutorial'}</Text>
+            <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Langkah {currentStep}/{totalSteps} • {progress}% • {formatTime(displayTime)}</Text>
               </View>
             </View>
             <Progress value={progress} height={4} />
@@ -352,8 +273,21 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Tutorial Info - step 1 only */}
         {currentStep === 1 && (
-          <View style={styles.card}>
-            <ImageWithFallback src={tutorial.imageUrl} alt={tutorial.title} style={{ width: '100%', height: 192, borderRadius: 12 }} />
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <TouchableOpacity 
+              onPress={() => handleImageZoom(tutorial.imageUrl)}
+              activeOpacity={0.8}
+            >
+              <ImageWithFallback 
+                src={tutorial.imageUrl} 
+                alt={tutorial.title} 
+                style={{ width: '100%', height: 192, borderRadius: 12 }} 
+              />
+              <View style={styles.zoomHint}>
+                <MaterialIcons name="zoom-in" size={16} color="#6b7280" />
+                <Text style={styles.zoomHintText}>Ketuk untuk zoom</Text>
+              </View>
+            </TouchableOpacity>
             <View style={{ padding: 16 }}>
               <View style={styles.tagRow}>
                 <Badge variant="secondary">{tutorial.category}</Badge>
@@ -361,15 +295,15 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
                   {tutorial.difficulty}
                 </Badge>
               </View>
-              <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
-              <Text style={styles.tutorialDesc}>{tutorial.description}</Text>
+              <Text style={[styles.tutorialTitle, { color: colors.text }]}>{tutorial.title}</Text>
+              <Text style={[styles.tutorialDesc, { color: colors.textSecondary }]}>{tutorial.description}</Text>
 
-              <View style={styles.divider} />
-              <Text style={styles.toolsTitle}><MaterialIcons name="build" size={16} color="#374151" /> Alat yang Dibutuhkan</Text>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.toolsTitle, { color: colors.text }]}><MaterialIcons name="build" size={16} color={colors.textSecondary} /> Alat yang Dibutuhkan</Text>
               <View style={styles.tagRow}>
                 {(tutorial.materials || []).map((material: any, i: number) => (
-                  <View key={i} style={styles.toolChip}>
-                    <Text style={styles.toolChipText}>{material.name}</Text>
+                  <View key={i} style={[styles.toolChip, { backgroundColor: colors.background }]}>
+                    <Text style={[styles.toolChipText, { color: colors.text }]}>{material.name}</Text>
                   </View>
                 ))}
               </View>
@@ -378,7 +312,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
         )}
 
         {/* Step Content */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={styles.stepHeader}>
             <View style={[styles.stepCircle, isStepCompleted ? styles.stepCircleComplete : styles.stepCircleActive]}>
               {isStepCompleted ? (
@@ -387,25 +321,38 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
                 <Text style={styles.stepCircleText}>{currentStep}</Text>
               )}
             </View>
-            <Text style={styles.stepTitle}>{currentStepData.title}</Text>
+            <Text style={[styles.stepTitle, { color: colors.text }]}>{currentStepData.title}</Text>
           </View>
 
           {currentStepData.imageUrl && (
-            <ImageWithFallback src={currentStepData.imageUrl} alt={currentStepData.title} style={{ width: '100%', height: 192, borderRadius: 12, marginBottom: 16 }} />
+            <TouchableOpacity 
+              onPress={() => handleImageZoom(currentStepData.imageUrl)}
+              activeOpacity={0.8}
+            >
+              <ImageWithFallback 
+                src={currentStepData.imageUrl} 
+                alt={currentStepData.title} 
+                style={{ width: '100%', height: 192, borderRadius: 12, marginBottom: 16 }} 
+              />
+              <View style={styles.zoomHint}>
+                <MaterialIcons name="zoom-in" size={16} color="#6b7280" />
+                <Text style={styles.zoomHintText}>Ketuk untuk zoom</Text>
+              </View>
+            </TouchableOpacity>
           )}
 
           {currentStepData.videoUrl ? (
             <StepVideo uri={currentStepData.videoUrl} />
           ) : null}
 
-          <Text style={styles.stepContent}>{currentStepData.content}</Text>
+          <Text style={[styles.stepContent, { color: colors.textSecondary }]}>{currentStepData.content}</Text>
 
           {currentStepData.details && currentStepData.details.length > 0 && (
             <View style={{ marginTop: 12, gap: 8 }}>
               {currentStepData.details.map((detail: string, i: number) => (
                 <View key={i} style={styles.detailRow}>
                   <View style={styles.detailDot} />
-                  <Text style={styles.detailText}>{detail}</Text>
+                  <Text style={[styles.detailText, { color: colors.text }]}>{detail}</Text>
                 </View>
               ))}
             </View>
@@ -420,8 +367,8 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
         </View>
 
         {/* Step Indicators */}
-        <View style={styles.card}>
-          <Text style={styles.progressLabel}>Progress Langkah</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.progressLabel, { color: colors.text }]}>Progress Langkah</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.stepIndicatorRow}>
               {tutorial.steps.map((_: any, index: number) => {
@@ -470,12 +417,19 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
         )}
       </ScrollView>
 
+      {/* Image Zoom Modal */}
+      <ImageZoomModal
+        visible={zoomModalVisible}
+        imageUrl={selectedImageUrl}
+        onClose={closeZoomModal}
+      />
+
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
+      <View style={[styles.bottomNav, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         <Button onPress={handlePrevious} disabled={currentStep === 1} variant="outline" style={{ flex: 1, height: 48 }}>
-          <Text style={{ color: currentStep === 1 ? '#9ca3af' : '#374151', fontWeight: '600' }}><MaterialIcons name="chevron-left" size={18} color="#374151" /> Sebelumnya</Text>
+          <Text style={{ color: currentStep === 1 ? colors.textSecondary : colors.text, fontWeight: '600' }}><MaterialIcons name="chevron-left" size={18} color={colors.text} /> Sebelumnya</Text>
         </Button>
-        <Button onPress={handleNext} disabled={currentStep === totalSteps} style={{ flex: 1, height: 48, backgroundColor: currentStep === totalSteps ? '#9ca3af' : '#dc2626' }}>
+        <Button onPress={handleNext} disabled={currentStep === totalSteps} style={{ flex: 1, height: 48, backgroundColor: currentStep === totalSteps ? colors.textSecondary : colors.primary }}>
           <Text style={{ color: '#fff', fontWeight: '600' }}>Selanjutnya <MaterialIcons name="chevron-right" size={18} color="#fff" /></Text>
         </Button>
       </View>
@@ -529,4 +483,13 @@ const styles = StyleSheet.create({
   completionTitle: { fontWeight: 'bold', fontSize: 20, color: '#14532d', marginBottom: 8 },
   completionDesc: { fontSize: 14, color: '#15803d', textAlign: 'center', marginBottom: 16 },
   bottomNav: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb' },
+  zoomHint: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 6, 
+    marginTop: -8, 
+    marginBottom: 8 
+  },
+  zoomHintText: { fontSize: 12, color: '#6b7280' },
 });

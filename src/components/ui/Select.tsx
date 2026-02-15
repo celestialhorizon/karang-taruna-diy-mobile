@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, ViewStyle } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '../../context/ThemeContext';
 
 interface SelectOption {
   label: string;
@@ -16,6 +17,7 @@ interface SelectProps {
 }
 
 export function Select({ value, onValueChange, options, placeholder = 'Pilih...', style }: SelectProps) {
+  const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
   const selectedLabel = options.find(o => o.value === value)?.label || placeholder;
 
@@ -24,10 +26,10 @@ export function Select({ value, onValueChange, options, placeholder = 'Pilih...'
       <TouchableOpacity
         onPress={() => setVisible(true)}
         activeOpacity={0.7}
-        style={styles.trigger}
+        style={[styles.trigger, { backgroundColor: colors.card, borderColor: colors.border }]}
       >
-        <Text style={[styles.triggerText, !value && styles.placeholder]}>{selectedLabel}</Text>
-        <MaterialIcons name="keyboard-arrow-down" size={16} color="#6b7280" />
+        <Text style={[styles.triggerText, { color: value ? colors.text : colors.textSecondary }]}>{selectedLabel}</Text>
+        <MaterialIcons name="keyboard-arrow-down" size={16} color={colors.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={visible} transparent animationType="fade">
@@ -36,7 +38,7 @@ export function Select({ value, onValueChange, options, placeholder = 'Pilih...'
           activeOpacity={1}
           onPress={() => setVisible(false)}
         >
-          <View style={styles.dropdown}>
+          <View style={[styles.dropdown, { backgroundColor: colors.card }]}>
             <FlatList
               data={options}
               keyExtractor={(item) => item.value}
@@ -46,9 +48,9 @@ export function Select({ value, onValueChange, options, placeholder = 'Pilih...'
                     onValueChange(item.value);
                     setVisible(false);
                   }}
-                  style={[styles.option, item.value === value && styles.selectedOption]}
+                  style={[styles.option, { borderBottomColor: colors.border }, item.value === value && { backgroundColor: colors.primary + '20' }]}
                 >
-                  <Text style={[styles.optionText, item.value === value && styles.selectedOptionText]}>
+                  <Text style={[styles.optionText, { color: colors.text }, item.value === value && { color: colors.primary, fontWeight: '600' }]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
@@ -65,26 +67,15 @@ const styles = StyleSheet.create({
   trigger: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 8,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
   },
   triggerText: {
     fontSize: 14,
-    color: '#111827',
     flex: 1,
-  },
-  placeholder: {
-    color: '#9ca3af',
-  },
-  arrow: {
-    fontSize: 10,
-    color: '#9ca3af',
-    marginLeft: 8,
   },
   overlay: {
     flex: 1,
@@ -93,7 +84,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   dropdown: {
-    backgroundColor: '#ffffff',
     borderRadius: 12,
     maxHeight: 300,
     overflow: 'hidden',
@@ -102,17 +92,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f3f4f6',
-  },
-  selectedOption: {
-    backgroundColor: '#fef2f2',
   },
   optionText: {
     fontSize: 14,
-    color: '#374151',
-  },
-  selectedOptionText: {
-    color: '#dc2626',
-    fontWeight: '600',
   },
 });

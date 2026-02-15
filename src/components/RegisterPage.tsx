@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -9,7 +9,9 @@ import { Input } from './ui/Input';
 import { Logo } from './ui/Logo';
 import { Label } from './ui/Label';
 import { Checkbox } from './ui/Checkbox';
+import { ThemeToggle } from './ui/ThemeToggle';
 import { Select } from './ui/Select';
+import { useTheme } from '../context/ThemeContext';
 import apiService from '../services/api';
 
 interface RegisterPageProps {
@@ -24,6 +26,7 @@ const SKILL_LEVELS = [
 ];
 
 export function RegisterPage({ onNavigate }: RegisterPageProps) {
+  const { colors } = useTheme();
   const [formData, setFormData] = useState({
     name: '', username: '', email: '', password: '', confirmPassword: '',
     karangTarunaName: '', provinsi: '', kabupatenKota: '', kecamatan: '', jalan: '',
@@ -31,6 +34,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const validateForm = () => {
     const e: Record<string, string> = {};
@@ -42,11 +46,30 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
     else if (formData.password.length < 6) e.password = 'Password minimal 6 karakter';
     if (formData.password !== formData.confirmPassword) e.confirmPassword = 'Password tidak sama';
     if (!formData.karangTarunaName.trim()) e.karangTarunaName = 'Nama karang taruna wajib diisi';
+    if (!formData.peranAnggota.trim()) e.peranAnggota = 'Peran anggota wajib diisi';
     if (!formData.provinsi.trim()) e.provinsi = 'Provinsi wajib diisi';
     if (!formData.kabupatenKota.trim()) e.kabupatenKota = 'Kabupaten/Kota wajib diisi';
     if (!formData.kecamatan.trim()) e.kecamatan = 'Kecamatan wajib diisi';
     if (!formData.jalan.trim()) e.jalan = 'Jalan wajib diisi';
+    if (!formData.phone.trim()) e.phone = 'Nomor telepon wajib diisi';
+    
     setErrors(e);
+    
+    // Auto scroll to first error field
+    if (Object.keys(e).length > 0) {
+      const firstErrorField = Object.keys(e)[0];
+      setTimeout(() => {
+        // Find the field and scroll to it
+        const fieldOrder = ['name', 'username', 'email', 'password', 'confirmPassword', 'karangTarunaName', 'peranAnggota', 'provinsi', 'kabupatenKota', 'kecamatan', 'jalan', 'phone', 'skillLevel'];
+        const fieldIndex = fieldOrder.indexOf(firstErrorField);
+        if (fieldIndex !== -1 && scrollViewRef.current) {
+          // Scroll to approximate position of the error field
+          const scrollPosition = fieldIndex * 100; // Approximate height per field
+          scrollViewRef.current.scrollTo({ y: scrollPosition, animated: true });
+        }
+      }, 100);
+    }
+    
     return Object.keys(e).length === 0;
   };
 
@@ -90,18 +113,90 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
       // Navigate to home after successful registration
       onNavigate('home');
     } catch (error: any) {
-      if (error.message.includes('User already exists')) {
-        setErrors({ email: 'Email sudah terdaftar' });
-      } else if (error.message.includes('username')) {
-        setErrors({ username: 'Username sudah digunakan' });
-      } else {
-        setErrors({ email: error.message || 'Registrasi gagal' });
+      console.log('Registration error:', error); // Debug log
+      console.log('Error data:', error.data); // Debug backend response
+      
+      // Extract detailed error from backend response
+      let errorMessage = 'Registrasi gagal';
+      let errorField = 'email'; // default field
+      
+      if (error.data) {
+        // Prioritize errors object over message
+        if (error.data.errors && typeof error.data.errors === 'object') {
+          // Get first error from object
+          const firstField = Object.keys(error.data.errors)[0];
+          const firstError = Object.values(error.data.errors)[0];
+          errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+          errorField = firstField;
+        } else if (error.data.errors && Array.isArray(error.data.errors)) {
+          // If errors is an array, join them
+          errorMessage = error.data.errors.join(', ');
+        } else if (error.data.message) {
+          errorMessage = error.data.message;
+        } else if (error.data.error) {
+          errorMessage = error.data.error;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-      Toast.show({ 
-        type: 'error', 
-        text1: 'Registrasi gagal', 
-        text2: error.message || 'Silakan coba lagi.' 
-      });
+      
+      console.log('Final error message:', errorMessage, 'Field:', errorField);
+      
+      // Set error to specific field and show appropriate toast
+      let scrollField = errorField; // Default field for scrolling
+      
+      if (errorMessage.includes('User already exists') || errorMessage.includes('email')) {
+        setErrors({ email: 'Email sudah terdaftar' });
+        scrollField = 'email';
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Email Sudah Terdaftar', 
+          text2: 'Silakan gunakan email lain atau coba login.' 
+        });
+      } else if (errorMessage.includes('username')) {
+        setErrors({ username: 'Username sudah digunakan' });
+        scrollField = 'username';
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Username Tidak Tersedia', 
+          text2: 'Silakan pilih username lain.' 
+        });
+      } else if (errorField === 'password') {
+        setErrors({ password: errorMessage });
+        scrollField = 'password';
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Password Tidak Valid', 
+          text2: errorMessage 
+        });
+      } else if (errorField === 'name') {
+        setErrors({ name: errorMessage });
+        scrollField = 'name';
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Nama Tidak Valid', 
+          text2: errorMessage 
+        });
+      } else {
+        // Generic error - show in email field as fallback
+        setErrors({ [errorField]: errorMessage });
+        scrollField = errorField;
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Registrasi Gagal', 
+          text2: errorMessage 
+        });
+      }
+      
+      // Auto scroll to error field after setting errors
+      setTimeout(() => {
+        const fieldOrder = ['name', 'username', 'email', 'password', 'confirmPassword', 'karangTarunaName', 'peranAnggota', 'provinsi', 'kabupatenKota', 'kecamatan', 'jalan', 'phone', 'skillLevel'];
+        const fieldIndex = fieldOrder.indexOf(scrollField);
+        if (fieldIndex !== -1 && scrollViewRef.current) {
+          const scrollPosition = fieldIndex * 100; // Approximate height per field
+          scrollViewRef.current.scrollTo({ y: scrollPosition, animated: true });
+        }
+      }, 100);
     } finally {
       setIsLoading(false);
     }
@@ -122,41 +217,41 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <MaterialIcons name="chevron-left" size={28} color="#374151" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Daftar Akun</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
+            <MaterialIcons name="chevron-left" size={28} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Daftar Akun</Text>
+          <View style={{ flex: 1 }} />
+          <ThemeToggle />
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Logo */}
-        <View style={styles.logoRow}>
-          <Logo size={60} />
-        </View>
-
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.content}>
+        
         {/* Data Pribadi */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}><MaterialIcons name="person" size={16} color="#666" /> Data Pribadi</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}><MaterialIcons name="person" size={16} color={colors.textSecondary} /> Data Pribadi</Text>
           {renderField('Nama Lengkap *', 'name', 'Nama lengkap Anda')}
           {renderField('Username *', 'username', 'Username unik')}
           {renderField('Email *', 'email', 'nama@email.com', { keyboardType: 'email-address', autoCapitalize: 'none' })}
           {renderField('Password *', 'password', 'Minimal 6 karakter', { secureTextEntry: true })}
           {renderField('Konfirmasi Password *', 'confirmPassword', 'Ulangi password', { secureTextEntry: true })}
-          {renderField('Nomor Telepon', 'phone', '081234567890', { keyboardType: 'phone-pad' })}
+          {renderField('Nomor Telepon *', 'phone', '081234567890', { keyboardType: 'phone-pad' })}
         </View>
 
         {/* Karang Taruna */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Informasi Karang Taruna</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Informasi Karang Taruna</Text>
           {renderField('Nama Karang Taruna *', 'karangTarunaName', 'Karang Taruna Mekar Jaya')}
-          {renderField('Peran Anggota', 'peranAnggota', 'Ketua, Sekretaris, Anggota, dll.')}
+          {renderField('Peran Anggota *', 'peranAnggota', 'Ketua, Sekretaris, Anggota, dll.')}
         </View>
 
         {/* Alamat */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Wilayah Domisili</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Wilayah Domisili</Text>
           {renderField('Provinsi *', 'provinsi', 'Jawa Barat')}
           {renderField('Kabupaten/Kota *', 'kabupatenKota', 'Bandung')}
           {renderField('Kecamatan *', 'kecamatan', 'Cibiru')}
@@ -164,10 +259,10 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         </View>
 
         {/* Minat & Keahlian */}
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Minat & Keahlian</Text>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Minat & Keahlian</Text>
           <Label>Minat DIY</Label>
-          <Text style={styles.hintText}>Pilih kategori yang Anda minati</Text>
+          <Text style={[styles.hintText, { color: colors.textSecondary }]}>Pilih kategori yang Anda minati</Text>
           {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat}
@@ -179,7 +274,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
                 checked={formData.interests.includes(cat)}
                 onCheckedChange={(checked) => handleInterestChange(cat, checked)}
               />
-              <Text style={styles.checkboxLabel}>{cat}</Text>
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>{cat}</Text>
             </TouchableOpacity>
           ))}
 
@@ -204,9 +299,9 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         </Button>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Sudah punya akun? </Text>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>Sudah punya akun? </Text>
           <TouchableOpacity onPress={() => onNavigate('login')}>
-            <Text style={styles.footerLink}>Login di sini</Text>
+            <Text style={[styles.footerLink, { color: colors.primary }]}>Login di sini</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -216,7 +311,8 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 12 },
+  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 16 },
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   backBtn: { padding: 8, marginLeft: -8 },
   backIcon: { fontSize: 28, color: '#374151', fontWeight: '300' },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
@@ -228,7 +324,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontWeight: '600', fontSize: 15, color: '#111827', marginBottom: 16 },
   errorText: { fontSize: 12, color: '#ef4444', marginTop: 4 },
   hintText: { fontSize: 12, color: '#9ca3af', marginTop: 2, marginBottom: 12 },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: '#f9fafb', borderRadius: 8, marginBottom: 8 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 8, marginBottom: 8 },
   checkboxLabel: { fontSize: 14, color: '#374151', flex: 1 },
   submitBtn: { height: 52, backgroundColor: '#dc2626', marginTop: 8 },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },

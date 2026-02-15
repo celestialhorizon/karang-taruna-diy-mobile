@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,6 +12,9 @@ import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
 import { Logo } from './ui/Logo';
 import { Input } from './ui/Input';
+import { ThemeToggle } from './ui/ThemeToggle';
+import { BottomNavigation } from './ui/BottomNavigation';
+import { useTheme } from '../context/ThemeContext';
 import apiService from '../services/api';
 
 interface Tutorial {
@@ -26,22 +30,35 @@ interface Tutorial {
 }
 
 interface HomePageProps {
-  user: any | null;
+  user: any;
   onNavigate: (page: string, tutorialId?: string) => void;
   onLogout: () => void;
+  initialTab?: 'home' | 'profile';
 }
 
-export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
+export function HomePage({ user, onNavigate, onLogout, initialTab = 'home' }: HomePageProps) {
+  const { colors, isDark } = useTheme();
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [filteredTutorials, setFilteredTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'profile'>(initialTab);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [learningData, setLearningData] = useState<any[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+
+  // Debug: Log user data
+  useEffect(() => {
+    console.log('=== USER DEBUG ===');
+    console.log('HomePage user object:', user);
+    console.log('user.name:', user?.name);
+    console.log('user.username:', user?.username);
+    console.log('user keys:', user ? Object.keys(user) : 'No user');
+    console.log('==================');
+  }, [user]);
 
   // Filter & Sort states
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -85,6 +102,25 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Load tutorials
+      const data = await apiService.getTutorials();
+      setTutorials(data);
+      
+      // Also reload learning data if user is logged in
+      if (user) {
+        const learningData = await AsyncStorage.getItem(`learning_${user.email}`);
+        setLearningData(learningData ? JSON.parse(learningData) : []);
+      }
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const filterTutorials = () => {
     let filtered = tutorials;
     
@@ -121,6 +157,14 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
       return `${hours}j ${remainingMinutes}m`;
     }
     return `${minutes}m`;
+  };
+
+  const parseDuration = (duration: string | number): number => {
+    // Convert duration to minutes for sorting
+    if (typeof duration === 'number') {
+      return duration;
+    }
+    return parseInt(duration) || 0;
   };
 
   const filteredAndSortedTutorials = tutorials
@@ -170,26 +214,28 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
   // Profile/Account View
   if (activeTab === 'profile') {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <View style={styles.headerRow}>
-          <Logo size={32} />
-          <Text style={styles.headerTitle}>Profil</Text>
-        </View>
+            <Logo size={32} />
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Profil</Text>
+            <View style={{ flex: 1 }} />
+            <ThemeToggle />
+          </View>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
           {user ? (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
               <View style={styles.profileHeader}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{user.name?.charAt(0) || 'U'}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.profileName}>{user.name}</Text>
-                  <Text style={styles.profileUsername}>@{user.username}</Text>
-                  <Text style={styles.profileEmail}>{user.email}</Text>
+                  <Text style={[styles.profileName, { color: colors.text }]}>{user.name}</Text>
+                  <Text style={[styles.profileUsername, { color: colors.textSecondary }]}>@{user.username}</Text>
+                  <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user.email}</Text>
                 </View>
               </View>
 
@@ -197,15 +243,15 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
 
               <View style={{ gap: 16 }}>
                 <View>
-                  <Text style={styles.labelSmall}>Karang Taruna</Text>
-                  <Text style={styles.valueText}>{user.karangTarunaName || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Karang Taruna</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.karangTarunaName || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Peran Anggota</Text>
-                  <Text style={styles.valueText}>{user.peranAnggota || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Peran Anggota</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.peranAnggota || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Tingkat Keahlian</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Tingkat Keahlian</Text>
                   {user.skillLevel ? (
                     <Badge
                       style={{ backgroundColor: getDifficultyColor(user.skillLevel).bg }}
@@ -214,11 +260,11 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                       {user.skillLevel}
                     </Badge>
                   ) : (
-                    <Text style={styles.valueText}>-</Text>
+                    <Text style={[styles.valueText, { color: colors.text }]}>-</Text>
                   )}
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Minat DIY</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Minat DIY</Text>
                   {user.interests && user.interests.length > 0 ? (
                     <View style={styles.tagRow}>
                       {user.interests.map((interest: string) => (
@@ -226,31 +272,31 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                       ))}
                     </View>
                   ) : (
-                    <Text style={styles.valueText}>-</Text>
+                    <Text style={[styles.valueText, { color: colors.text }]}>-</Text>
                   )}
                 </View>
 
-                <View style={styles.divider} />
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                 <View>
-                  <Text style={styles.labelSmall}>Provinsi</Text>
-                  <Text style={styles.valueText}>{user.provinsi || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Provinsi</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.provinsi || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Kabupaten/Kota</Text>
-                  <Text style={styles.valueText}>{user.kabupatenKota || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Kabupaten/Kota</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.kabupatenKota || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Kecamatan</Text>
-                  <Text style={styles.valueText}>{user.kecamatan || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Kecamatan</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.kecamatan || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Jalan</Text>
-                  <Text style={styles.valueText}>{user.jalan || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Jalan</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.jalan || '-'}</Text>
                 </View>
                 <View>
-                  <Text style={styles.labelSmall}>Nomor Telepon</Text>
-                  <Text style={styles.valueText}>{user.phone || '-'}</Text>
+                  <Text style={[styles.labelSmall, { color: colors.textSecondary }]}>Nomor Telepon</Text>
+                  <Text style={[styles.valueText, { color: colors.text }]}>{user.phone || '-'}</Text>
                 </View>
               </View>
 
@@ -264,12 +310,12 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
               </Button>
             </View>
           ) : (
-            <View style={[styles.card, { alignItems: 'center', paddingVertical: 32 }]}>
-              <View style={styles.emptyAvatar}>
-                <MaterialIcons name="person" size={40} color="#9ca3af" />
+            <View style={[styles.card, { alignItems: 'center', paddingVertical: 32, backgroundColor: colors.card }]}>
+              <View style={[styles.emptyAvatar, { backgroundColor: colors.background }]}>
+                <MaterialIcons name="person" size={40} color={colors.textSecondary} />
               </View>
-              <Text style={styles.emptyTitle}>Belum Login</Text>
-              <Text style={styles.emptySubtitle}>Login untuk mengakses fitur lengkap</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Belum Login</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Login untuk mengakses fitur lengkap</Text>
               <Button onPress={() => onNavigate('login')} style={{ width: '100%', marginTop: 16 }}>
                 Login
               </Button>
@@ -281,35 +327,31 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
         </ScrollView>
 
         {/* Bottom Navigation */}
-        <View style={styles.bottomNav}>
-          <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}>
-            <MaterialIcons name="home" size={22} color="#6b7280" />
-            <Text style={styles.navLabel}>Beranda</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => user ? onNavigate('my-learning') : onNavigate('login')}>
-            <MaterialIcons name="menu-book" size={22} color="#6b7280" />
-            <Text style={styles.navLabel}>Belajar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('profile')}>
-            <MaterialIcons name="person" size={22} color="#6b7280" />
-            <Text style={[styles.navLabel, styles.navActive]}>Profil</Text>
-          </TouchableOpacity>
-        </View>
+        <BottomNavigation 
+          activeTab={activeTab}
+          onNavigate={onNavigate}
+          user={user}
+        />
       </SafeAreaView>
     );
   }
 
   // Main Home View
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={styles.headerRow}>
           <Logo size={32} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Karang Taruna DIY</Text>
-            {user && <Text style={styles.headerSubtitle}>Halo, {user.name}</Text>}
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Karang Taruna DIY</Text>
+            {user && (
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                Halo, {user.name ? user.name : user.username ? user.username : 'User'}
+              </Text>
+            )}
           </View>
+          <ThemeToggle />
         </View>
 
         {/* Search */}
@@ -331,47 +373,47 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
         {/* Category & Filter/Sort Row */}
         <View style={styles.filterRow}>
           <TouchableOpacity
-            style={[styles.filterBtn, { flex: 1 }]}
+            style={[styles.filterBtn, { flex: 1, backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
           >
-            <Text style={styles.filterBtnText} numberOfLines={1}>
+            <Text style={[styles.filterBtnText, { color: colors.text }]} numberOfLines={1}>
               {selectedCategory === 'Semua' ? 'Kategori' : selectedCategory}
             </Text>
-            <MaterialIcons name="keyboard-arrow-down" size={10} color="#6b7280" />
+            <MaterialIcons name="keyboard-arrow-down" size={10} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.filterBtn, showSearch && styles.filterBtnActive]}
+            style={[styles.filterBtn, { backgroundColor: colors.card, borderColor: colors.border }, showSearch && styles.filterBtnActive]}
             onPress={() => setShowSearch(!showSearch)}
           >
-            <MaterialIcons name="search" size={16} color="#666" />
+            <MaterialIcons name="search" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.filterBtn, (showFilterMenu || filterProgress !== 'all' || filterDifficulty !== 'all') && styles.filterBtnActive]}
+            style={[styles.filterBtn, { backgroundColor: colors.card, borderColor: colors.border }, (showFilterMenu || filterProgress !== 'all' || filterDifficulty !== 'all') && styles.filterBtnActive]}
             onPress={() => { setShowFilterMenu(!showFilterMenu); setShowSortMenu(false); }}
           >
-            <MaterialIcons name="settings" size={16} color="#666" />
+            <MaterialIcons name="settings" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.filterBtn, (showSortMenu || sortBy !== 'newest') && styles.filterBtnActive]}
+            style={[styles.filterBtn, { backgroundColor: colors.card, borderColor: colors.border }, (showSortMenu || sortBy !== 'newest') && styles.filterBtnActive]}
             onPress={() => { setShowSortMenu(!showSortMenu); setShowFilterMenu(false); }}
           >
-            <MaterialIcons name="sort" size={16} color="#666" />
+            <MaterialIcons name="sort" size={16} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
         {/* Category Dropdown */}
         {showCategoryDropdown && (
-          <View style={styles.dropdown}>
+          <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {categories.map((category) => (
               <TouchableOpacity
                 key={category}
                 onPress={() => { setSelectedCategory(category); setShowCategoryDropdown(false); }}
-                style={[styles.dropdownItem, selectedCategory === category && styles.dropdownItemActive]}
+                style={[styles.dropdownItem, selectedCategory === category && { backgroundColor: isDark ? 'rgba(220,38,38,0.2)' : '#fef2f2' }]}
               >
-                <Text style={[styles.dropdownItemText, selectedCategory === category && styles.dropdownItemTextActive]}>
+                <Text style={[styles.dropdownItemText, { color: colors.text }, selectedCategory === category && { color: colors.primary, fontWeight: '600' }]}>
                   {category}
                 </Text>
               </TouchableOpacity>
@@ -381,18 +423,18 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
 
         {/* Filter Menu */}
         {showFilterMenu && (
-          <View style={styles.filterMenu}>
+          <View style={[styles.filterMenu, { backgroundColor: colors.card }]}>
             {user && (
               <View style={{ marginBottom: 12 }}>
-                <Text style={styles.filterMenuLabel}>Status Progress</Text>
+                <Text style={[styles.filterMenuLabel, { color: colors.text }]}>Status Progress</Text>
                 <View style={styles.chipRow}>
                   {(['all', 'ongoing', 'completed'] as const).map((val) => (
                     <TouchableOpacity
                       key={val}
                       onPress={() => setFilterProgress(val)}
-                      style={[styles.chip, filterProgress === val && styles.chipActive]}
+                      style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.border }, filterProgress === val && styles.chipActive]}
                     >
-                      <Text style={[styles.chipText, filterProgress === val && styles.chipTextActive]}>
+                      <Text style={[styles.chipText, { color: colors.text }, filterProgress === val && styles.chipTextActive]}>
                         {val === 'all' ? 'Semua' : val === 'ongoing' ? 'Sedang Belajar' : 'Selesai'}
                       </Text>
                     </TouchableOpacity>
@@ -401,15 +443,15 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
               </View>
             )}
             <View>
-              <Text style={styles.filterMenuLabel}>Tingkat Keahlian</Text>
+              <Text style={[styles.filterMenuLabel, { color: colors.text }]}>Tingkat Keahlian</Text>
               <View style={styles.chipRow}>
                 {(['all', 'Pemula', 'Menengah', 'Mahir'] as const).map((val) => (
                   <TouchableOpacity
                     key={val}
                     onPress={() => setFilterDifficulty(val)}
-                    style={[styles.chip, filterDifficulty === val && styles.chipActive]}
+                    style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.border }, filterDifficulty === val && styles.chipActive]}
                   >
-                    <Text style={[styles.chipText, filterDifficulty === val && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, { color: colors.text }, filterDifficulty === val && styles.chipTextActive]}>
                       {val === 'all' ? 'Semua' : val}
                     </Text>
                   </TouchableOpacity>
@@ -421,8 +463,8 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
 
         {/* Sort Menu */}
         {showSortMenu && (
-          <View style={styles.filterMenu}>
-            <Text style={styles.filterMenuLabel}>Urutkan</Text>
+          <View style={[styles.filterMenu, { backgroundColor: colors.card }]}>
+            <Text style={[styles.filterMenuLabel, { color: colors.text }]}>Urutkan</Text>
             {([
               { key: 'newest', label: 'Tutorial Terbaru' },
               { key: 'oldest', label: 'Tutorial Terlama' },
@@ -432,9 +474,9 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
               <TouchableOpacity
                 key={item.key}
                 onPress={() => { setSortBy(item.key); setShowSortMenu(false); }}
-                style={[styles.sortItem, sortBy === item.key && styles.sortItemActive]}
+                style={[styles.sortItem, { backgroundColor: colors.background }, sortBy === item.key && styles.sortItemActive]}
               >
-                <Text style={[styles.sortItemText, sortBy === item.key && styles.sortItemTextActive]}>
+                <Text style={[styles.sortItemText, { color: colors.text }, sortBy === item.key && styles.sortItemTextActive]}>
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -444,18 +486,32 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
       </View>
 
       {/* Tutorial List */}
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView 
+        style={styles.content} 
+        contentContainerStyle={{ paddingBottom: 80 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#dc2626']} // Android
+            tintColor="#dc2626" // iOS
+            // Web-specific props
+            style={{ backgroundColor: '#f3f4f6' }}
+            progressBackgroundColor="#f3f4f6"
+          />
+        }
+      >
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>
+          <Text style={[styles.listTitle, { color: colors.text }]}>
             {selectedCategory === 'Semua' ? 'Semua Tutorial' : selectedCategory}
           </Text>
-          <Text style={styles.listCount}>{filteredAndSortedTutorials.length} tutorial</Text>
+          <Text style={[styles.listCount, { color: colors.textSecondary }]}>{filteredAndSortedTutorials.length} tutorial</Text>
         </View>
 
         {isLoading ? (
           <View style={{ alignItems: 'center', paddingVertical: 48 }}>
             <ActivityIndicator size="large" color="#dc2626" />
-            <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat tutorials...</Text>
+            <Text style={{ marginTop: 16, color: colors.textSecondary }}>Memuat tutorials...</Text>
           </View>
         ) : filteredAndSortedTutorials.length > 0 ? (
           filteredAndSortedTutorials.map((tutorial) => {
@@ -466,7 +522,7 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                 key={tutorial._id}
                 activeOpacity={0.8}
                 onPress={() => handleViewDetail(tutorial._id)}
-                style={styles.tutorialCard}
+                style={[styles.tutorialCard, { backgroundColor: colors.card }]}
               >
                 <View style={styles.tutorialImageContainer}>
                   <ImageWithFallback
@@ -493,50 +549,41 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                   </View>
                 </View>
                 <View style={styles.tutorialInfo}>
-                  <Text style={styles.tutorialTitle} numberOfLines={2}>{tutorial.title}</Text>
-                  <Text style={styles.tutorialDesc} numberOfLines={2}>{tutorial.description}</Text>
+                  <Text style={[styles.tutorialTitle, { color: colors.text }]} numberOfLines={2}>{tutorial.title}</Text>
+                  <Text style={[styles.tutorialDesc, { color: colors.textSecondary }]} numberOfLines={2}>{tutorial.description}</Text>
                   <View style={styles.tagRow}>
                     <Badge variant="secondary">{tutorial.category}</Badge>
                     <Badge style={{ backgroundColor: diffColor.bg }} textStyle={{ color: diffColor.text }}>
                       {tutorial.difficulty}
                     </Badge>
-                    <Text style={styles.durationText}><MaterialIcons name="access-time" size={14} color="#666" /> {formatDuration(tutorial.duration)}</Text>
+                    <Text style={[styles.durationText, { color: colors.textSecondary }]}><MaterialIcons name="access-time" size={14} color={colors.textSecondary} /> {formatDuration(tutorial.duration)}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
             );
           })
         ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Tidak ada tutorial yang tersedia</Text>
-            <Text style={styles.emptyStateSubtext}>Tarik ke bawah untuk refresh</Text>
+          <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+            <Text style={[styles.emptyStateText, { color: colors.text }]}>Tidak ada tutorial yang tersedia</Text>
+            <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>Tarik ke bawah untuk refresh</Text>
           </View>
         )}
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}>
-          <MaterialIcons name="home" size={22} color="#6b7280" />
-          <Text style={[styles.navLabel, styles.navActive]}>Beranda</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => user ? onNavigate('my-learning') : onNavigate('login')}>
-          <MaterialIcons name="menu-book" size={22} color="#6b7280" />
-          <Text style={styles.navLabel}>Belajar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('profile')}>
-          <MaterialIcons name="person" size={22} color="#6b7280" />
-          <Text style={styles.navLabel}>Profil</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavigation 
+        activeTab={activeTab}
+        onNavigate={onNavigate}
+        user={user}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingBottom: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 8, marginBottom: 12 },
+  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logoPlaceholder: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#dc2626', alignItems: 'center', justifyContent: 'center' },
   logoText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   headerTitle: { fontWeight: 'bold', fontSize: 16, color: '#111827' },
@@ -544,7 +591,7 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   closeBtn: { padding: 8 },
-  filterRow: { flexDirection: 'row', gap: 8 },
+  filterRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   filterBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#f9fafb', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
   filterBtnText: { fontSize: 13, fontWeight: '500', color: '#374151', flex: 1 },
   filterBtnActive: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },

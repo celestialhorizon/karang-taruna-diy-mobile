@@ -8,7 +8,7 @@ interface LogoProps {
 
 export function Logo({ size = 40, style }: LogoProps) {
   // Using require with the correct path
-  const logoSource = require('../../../assets/images/logo.png');
+  const logoSource = require('../../../assets/logo.png');
   
   return (
     <View style={[styles.container, { width: size, height: size }, style]}>

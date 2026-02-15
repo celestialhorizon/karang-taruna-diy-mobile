@@ -1,5 +1,6 @@
 import React from 'react';
 import { TextInput, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface InputProps extends TextInputProps {
   error?: boolean;
@@ -7,10 +8,21 @@ interface InputProps extends TextInputProps {
 }
 
 export function Input({ error, style, containerStyle, ...props }: InputProps) {
+  const { colors } = useTheme();
+  
   return (
     <TextInput
-      placeholderTextColor="#9ca3af"
-      style={[styles.input, error && styles.error, style]}
+      placeholderTextColor={colors.textSecondary}
+      style={[
+        styles.input, 
+        {
+          borderColor: error ? '#ef4444' : colors.border,
+          color: colors.text,
+          backgroundColor: colors.card,
+        },
+        error && styles.error,
+        style
+      ]}
       {...props}
     />
   );
@@ -20,14 +32,11 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#ffffff',
   },
   error: {
-    borderColor: '#ef4444',
+    borderWidth: 2,
   },
 });

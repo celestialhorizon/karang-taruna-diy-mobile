@@ -8,6 +8,7 @@ import { Input } from './ui/Input';
 import { Button } from './ui/Button';
 import { Logo } from './ui/Logo';
 import { Label } from './ui/Label';
+import { useTheme } from '../context/ThemeContext';
 import apiService from '../services/api';
 
 interface LoginPageProps {
@@ -16,6 +17,7 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
+  const { colors } = useTheme();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +32,14 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
       setIsLoading(true);
       try {
         const user = await apiService.login(formData.email, formData.password);
+        
+        // Debug: Log user data
+        console.log('=== LOGIN DEBUG ===');
+        console.log('Login response:', user);
+        console.log('User name:', user.name);
+        console.log('User username:', user.username);
+        console.log('User object keys:', Object.keys(user));
+        console.log('==================');
         
         // Save user data to AsyncStorage
         await AsyncStorage.setItem('diy_current_user', JSON.stringify(user));
@@ -51,13 +61,13 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <MaterialIcons name="chevron-left" size={28} color="#374151" />
+          <MaterialIcons name="chevron-left" size={28} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Login</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Login</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -66,10 +76,10 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
           <Logo size={60} />
         </View>
 
-        <Text style={styles.title}>Selamat Datang Kembali!</Text>
-        <Text style={styles.subtitle}>Masuk untuk melanjutkan belajar</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Selamat Datang Kembali!</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Masuk untuk melanjutkan belajar</Text>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <View style={{ gap: 16 }}>
             <View>
               <Label>Email</Label>
@@ -107,9 +117,9 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Belum punya akun? </Text>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>Belum punya akun? </Text>
           <TouchableOpacity onPress={() => onNavigate('register')}>
-            <Text style={styles.footerLink}>Daftar di sini</Text>
+            <Text style={[styles.footerLink, { color: colors.primary }]}>Daftar di sini</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

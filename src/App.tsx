@@ -8,23 +8,33 @@ import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
 import { DetailPage } from './components/DetailPage';
 import { MyLearningPage } from './components/MyLearningPage';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import apiService from './services/api';
 
-type Page = 'register' | 'login' | 'home' | 'detail' | 'my-learning';
+type Page = 'register' | 'login' | 'home' | 'detail' | 'my-learning' | 'profile';
 
-export default function App() {
+function AppContent() {
+  const { isDark } = useTheme();
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [selectedTutorialId, setSelectedTutorialId] = useState<number>(1);
+  const [selectedTutorialId, setSelectedTutorialId] = useState<string>('1');
 
   // Check if user is already logged in
   useEffect(() => {
     const loadUser = async () => {
       try {
         const storedUser = await AsyncStorage.getItem('diy_current_user');
+        console.log('=== APP LOAD USER DEBUG ===');
+        console.log('Stored user from AsyncStorage:', storedUser);
         if (storedUser) {
-          setCurrentUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          console.log('Parsed user:', parsedUser);
+          console.log('User name:', parsedUser.name);
+          console.log('User username:', parsedUser.username);
+          console.log('User keys:', Object.keys(parsedUser));
+          setCurrentUser(parsedUser);
         }
+        console.log('============================');
       } catch (e) {
         console.error('Failed to load user', e);
       }
@@ -32,44 +42,7 @@ export default function App() {
     loadUser();
   }, []);
 
-  // Initialize test account
-  useEffect(() => {
-    const initTestAccount = async () => {
-      try {
-        const usersJson = await AsyncStorage.getItem('diy_users');
-        const users = usersJson ? JSON.parse(usersJson) : [];
-        const testUserExists = users.find((u: any) => u.email === 'test@mail.com');
-
-        if (!testUserExists) {
-          const testUser = {
-            name: 'Test User',
-            username: 'testuser',
-            email: 'test@mail.com',
-            password: 'test123',
-            karangTarunaName: 'Karang Taruna Test',
-            address: {
-              provinsi: 'DKI Jakarta',
-              kabupatenKota: 'Jakarta Selatan',
-              kecamatan: 'Kebayoran Baru',
-              jalan: 'Jl. Test No. 123',
-            },
-            phone: '081234567890',
-            interests: ['Pertukangan Kayu', 'Pengecatan'],
-            skillLevel: 'Pemula',
-            role: 'Anggota',
-            createdAt: new Date().toISOString(),
-          };
-          users.push(testUser);
-          await AsyncStorage.setItem('diy_users', JSON.stringify(users));
-        }
-      } catch (e) {
-        console.error('Failed to init test account', e);
-      }
-    };
-    initTestAccount();
-  }, []);
-
-  const handleNavigate = (page: string, tutorialId?: number) => {
+  const handleNavigate = (page: string, tutorialId?: string) => {
     setCurrentPage(page as Page);
     if (tutorialId) {
       setSelectedTutorialId(tutorialId);
@@ -90,7 +63,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       {currentPage === 'register' && (
         <RegisterPage onNavigate={handleNavigate} />
       )}
@@ -118,7 +91,26 @@ export default function App() {
           onLogout={handleLogout}
         />
       )}
-      <Toast />
+      {currentPage === 'profile' && (
+        <HomePage
+          user={currentUser}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+          initialTab="profile"
+        />
+      )}
+      <Toast 
+        position="bottom"
+        bottomOffset={20}
+      />
     </SafeAreaProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

@@ -48,7 +48,7 @@ export const uploadImage = async (
   filename: string,
   mimeType: string = 'image/jpeg'
 ): Promise<UploadResponse> => {
-  const token = await AsyncStorage.getItem('token');
+  const token = await AsyncStorage.getItem('auth_token');
   
   // Create form data
   const formData = new FormData();
@@ -81,7 +81,7 @@ export const uploadVideo = async (
   filename: string,
   mimeType: string = 'video/mp4'
 ): Promise<UploadResponse> => {
-  const token = await AsyncStorage.getItem('token');
+  const token = await AsyncStorage.getItem('auth_token');
   
   // Create form data
   const formData = new FormData();
@@ -113,7 +113,7 @@ export const deleteMedia = async (
   publicId: string,
   resourceType: 'image' | 'video' = 'image'
 ): Promise<void> => {
-  const token = await AsyncStorage.getItem('token');
+  const token = await AsyncStorage.getItem('auth_token');
   
   const response = await fetch(
     `${API_URL}/api/upload/${publicId}?resourceType=${resourceType}`,

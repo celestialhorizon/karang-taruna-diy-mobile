@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet, TextStyle } from 'react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 interface LabelProps {
   children: React.ReactNode;
@@ -7,14 +8,15 @@ interface LabelProps {
 }
 
 export function Label({ children, style }: LabelProps) {
-  return <Text style={[styles.label, style]}>{children}</Text>;
+  const { colors } = useTheme();
+  
+  return <Text style={[styles.label, { color: colors.text }, style]}>{children}</Text>;
 }
 
 const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
     marginBottom: 4,
   },
 });

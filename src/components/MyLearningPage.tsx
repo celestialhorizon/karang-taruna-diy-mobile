@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
@@ -7,6 +7,9 @@ import { Badge } from './ui/Badge';
 import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
 import { Logo } from './ui/Logo';
+import { ThemeToggle } from './ui/ThemeToggle';
+import { BottomNavigation } from './ui/BottomNavigation';
+import { useTheme } from '../context/ThemeContext';
 import apiService from '../services/api';
 
 interface MyLearningPageProps {
@@ -35,10 +38,12 @@ interface Tutorial {
 }
 
 export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
+  const { colors, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'ongoing' | 'completed'>('ongoing');
   const [learningData, setLearningData] = useState<any[]>([]);
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -61,6 +66,23 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Load user progress from API
+      const progressData = await apiService.getUserProgress();
+      setLearningData(progressData || []);
+      
+      // Load all tutorials
+      const tutorialsData = await apiService.getTutorials();
+      setTutorials(tutorialsData || []);
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -124,7 +146,7 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
     
     return (
       <TouchableOpacity
-        style={styles.tutorialCard}
+        style={[styles.tutorialCard, { backgroundColor: colors.card }]}
         onPress={() => onNavigate('detail', progress.tutorialId)}
         activeOpacity={0.8}
       >
@@ -140,21 +162,21 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
         )}
         <View style={{ padding: 16 }}>
           <Badge variant="secondary" style={{ marginBottom: 8 }}>{progress.tutorial.category}</Badge>
-          <Text style={styles.cardTitle}>{progress.tutorial.title}</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>{progress.tutorial.title}</Text>
 
           {!progress.completed && (
             <View style={{ marginTop: 12, gap: 6 }}>
               <View style={styles.progressRow}>
-                <Text style={styles.progressLabel}>Progress</Text>
-                <Text style={styles.progressValue}>{progress.percentage}%</Text>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>Progress</Text>
+                <Text style={[styles.progressValue, { color: colors.text }]}>{progress.percentage}%</Text>
               </View>
               <Progress value={progress.percentage} height={6} />
-              <Text style={styles.progressDetail}>
+              <Text style={[styles.progressDetail, { color: colors.textSecondary }]}>
                 {progress.completedCount} dari {progress.totalSteps} langkah selesai
               </Text>
               <View style={styles.progressRow}>
-                <Text style={styles.progressLabel}><MaterialIcons name="timer" size={14} color="#6b7280" /> Waktu</Text>
-                <Text style={styles.progressValue}>{formatTime(progress.timeSpent || 0)}</Text>
+                <Text style={[styles.progressLabel, { color: colors.textSecondary }]}><MaterialIcons name="timer" size={14} color={colors.textSecondary} /> Waktu</Text>
+                <Text style={[styles.progressValue, { color: colors.text }]}>{formatTime(progress.timeSpent || 0)}</Text>
               </View>
             </View>
           )}
@@ -169,8 +191,8 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
           {/* Always show time spent for completed tutorials */}
           {progress.completed && progress.timeSpent > 0 && (
             <View style={styles.completedRow}>
-              <MaterialIcons name="timer" size={14} color="#6b7280" />
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>{formatTime(progress.timeSpent)}</Text>
+              <MaterialIcons name="timer" size={14} color={colors.textSecondary} />
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>{formatTime(progress.timeSpent)}</Text>
             </View>
           )}
         </View>
@@ -179,63 +201,77 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <MaterialIcons name="chevron-left" size={28} color="#374151" />
-        </TouchableOpacity>
-        <View style={styles.headerRow}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={styles.headerContent}>
           <Logo size={32} />
-          <Text style={styles.headerTitle}>Pembelajaran Saya</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Pembelajaran Saya</Text>
+          <View style={{ flex: 1 }} />
+          <ThemeToggle />
         </View>
       </View>
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#dc2626" />
-          <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat data...</Text>
+          <Text style={{ marginTop: 16, color: colors.textSecondary }}>Memuat data...</Text>
         </View>
       ) : (
         <>
           {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
-              <Text style={[styles.statLabel, { color: '#dc2626' }]}>Sedang Belajar</Text>
-              <Text style={[styles.statValue, { color: '#dc2626' }]}>{ongoingTutorials.length}</Text>
+          <View style={[styles.statsRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(220,38,38,0.15)' : '#fef2f2', borderColor: isDark ? 'rgba(220,38,38,0.3)' : '#fecaca' }]}>
+              <Text style={[styles.statLabel, { color: isDark ? '#fca5a5' : '#dc2626' }]}>Sedang Belajar</Text>
+              <Text style={[styles.statValue, { color: isDark ? '#fca5a5' : '#dc2626' }]}>{ongoingTutorials.length}</Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
-              <Text style={[styles.statLabel, { color: '#16a34a' }]}>Selesai</Text>
-              <Text style={[styles.statValue, { color: '#16a34a' }]}>{completedTutorials.length}</Text>
+            <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(22,163,74,0.15)' : '#f0fdf4', borderColor: isDark ? 'rgba(22,163,74,0.3)' : '#bbf7d0' }]}>
+              <Text style={[styles.statLabel, { color: isDark ? '#86efac' : '#16a34a' }]}>Selesai</Text>
+              <Text style={[styles.statValue, { color: isDark ? '#86efac' : '#16a34a' }]}>{completedTutorials.length}</Text>
             </View>
           </View>
 
       {/* Tabs */}
-      <View style={styles.tabRow}>
+      <View style={[styles.tabRow, { backgroundColor: colors.background }]}>
         <TouchableOpacity
           onPress={() => setActiveTab('ongoing')}
-          style={[styles.tab, activeTab === 'ongoing' && styles.tabActive]}
+          style={[styles.tab, { backgroundColor: colors.card }, activeTab === 'ongoing' && styles.tabActive]}
         >
-          <Text style={[styles.tabText, activeTab === 'ongoing' && styles.tabTextActive]}>
-            <MaterialIcons name="access-time" size={16} color="#666" /> Sedang Belajar ({ongoingTutorials.length})
+          <Text style={[styles.tabText, { color: colors.text }, activeTab === 'ongoing' && styles.tabTextActive]}>
+            <MaterialIcons name="access-time" size={16} color={activeTab === 'ongoing' ? '#fff' : colors.textSecondary} /> Sedang Belajar ({ongoingTutorials.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setActiveTab('completed')}
-          style={[styles.tab, activeTab === 'completed' && styles.tabActive]}
+          style={[styles.tab, { backgroundColor: colors.card }, activeTab === 'completed' && styles.tabActive]}
         >
-          <Text style={[styles.tabText, activeTab === 'completed' && styles.tabTextActive]}>
-            <MaterialIcons name="check" size={16} color="#16a34a" /> Selesai ({completedTutorials.length})
+          <Text style={[styles.tabText, { color: colors.text }, activeTab === 'completed' && styles.tabTextActive]}>
+            <MaterialIcons name="check" size={16} color={activeTab === 'completed' ? '#fff' : '#16a34a'} /> Selesai ({completedTutorials.length})
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#dc2626']} // Android
+            tintColor="#dc2626" // iOS
+            // Web-specific props
+            style={{ backgroundColor: '#f3f4f6' }}
+            progressBackgroundColor="#f3f4f6"
+          />
+        }
+      >
         {activeTab === 'ongoing' && (
           ongoingTutorials.length > 0 ? (
             ongoingTutorials
               .map((item) => {
+                if (!item.tutorial) return null;
                 const tutorialId = typeof item.tutorial === 'object' ? item.tutorial._id : item.tutorial;
                 const progress = getTutorialProgress(tutorialId);
                 return progress ? { ...item, progress } : null;
@@ -245,10 +281,10 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
                 <TutorialCard key={item.progress.tutorialId} progress={item.progress} />
               ))
           ) : (
-            <View style={styles.emptyState}>
-              <MaterialIcons name="menu-book" size={40} color="#9ca3af" />
-              <Text style={styles.emptyTitle}>Belum Ada Tutorial</Text>
-              <Text style={styles.emptySubtitle}>Mulai belajar tutorial baru dari beranda</Text>
+            <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+              <MaterialIcons name="menu-book" size={40} color={colors.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Belum Ada Tutorial</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Mulai belajar tutorial baru dari beranda</Text>
               <Button onPress={() => onNavigate('home')} style={{ marginTop: 16 }}>
                 <Text style={{ color: '#fff', fontWeight: '600' }}>Jelajahi Tutorial</Text>
               </Button>
@@ -260,6 +296,7 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
           completedTutorials.length > 0 ? (
             completedTutorials
               .map((item) => {
+                if (!item.tutorial) return null;
                 const tutorialId = typeof item.tutorial === 'object' ? item.tutorial._id : item.tutorial;
                 const progress = getTutorialProgress(tutorialId);
                 return progress ? { ...item, progress } : null;
@@ -269,30 +306,21 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
                 <TutorialCard key={item.progress.tutorialId} progress={item.progress} />
               ))
           ) : (
-            <View style={styles.emptyState}>
-              <MaterialIcons name="check-circle" size={40} color="#9ca3af" />
-              <Text style={styles.emptyTitle}>Belum Ada yang Selesai</Text>
-              <Text style={styles.emptySubtitle}>Selesaikan tutorial untuk melihatnya di sini</Text>
+            <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+              <MaterialIcons name="check-circle" size={40} color={colors.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Belum Ada yang Selesai</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Selesaikan tutorial untuk melihatnya di sini</Text>
             </View>
           )
         )}
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('home')}>
-          <MaterialIcons name="home" size={22} color="#6b7280" />
-          <Text style={styles.navLabel}>Beranda</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialIcons name="menu-book" size={22} color="#dc2626" />
-          <Text style={[styles.navLabel, styles.navActive]}>Belajar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('home')}>
-          <MaterialIcons name="person" size={22} color="#6b7280" />
-          <Text style={styles.navLabel}>Profil</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNavigation 
+        activeTab="learning"
+        onNavigate={onNavigate}
+        user={user}
+      />
         </>
       )}
     </SafeAreaView>
@@ -301,9 +329,8 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  backBtn: { padding: 8, marginLeft: -8, marginRight: 8 },
+  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 16 },
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   backIcon: { fontSize: 28, color: '#374151', fontWeight: '300' },
   headerTitle: { fontWeight: '600', fontSize: 16, color: '#111827' },
   statsRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },

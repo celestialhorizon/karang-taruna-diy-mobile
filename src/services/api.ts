@@ -46,7 +46,29 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        // Handle different error response formats
+        let errorMessage = 'Something went wrong';
+        
+        if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        } else if (data.errors && Array.isArray(data.errors)) {
+          // If errors is an array, join them
+          errorMessage = data.errors.join(', ');
+        } else if (data.errors && typeof data.errors === 'object') {
+          // If errors is an object, get the first error
+          const firstError = Object.values(data.errors)[0];
+          errorMessage = Array.isArray(firstError) ? firstError[0] : String(firstError);
+        } else if (typeof data === 'string') {
+          errorMessage = data;
+        }
+        
+        // Create error with additional properties for better handling
+        const error = new Error(errorMessage) as any;
+        error.status = response.status;
+        error.data = data;
+        throw error;
       }
 
       return data;
