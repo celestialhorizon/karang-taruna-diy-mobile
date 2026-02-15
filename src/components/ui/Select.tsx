@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, FlatList, StyleSheet, ViewStyle } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface SelectOption {
   label: string;
@@ -26,7 +27,7 @@ export function Select({ value, onValueChange, options, placeholder = 'Pilih...'
         style={styles.trigger}
       >
         <Text style={[styles.triggerText, !value && styles.placeholder]}>{selectedLabel}</Text>
-        <Text style={styles.arrow}>▼</Text>
+        <MaterialIcons name="keyboard-arrow-down" size={16} color="#6b7280" />
       </TouchableOpacity>
 
       <Modal visible={visible} transparent animationType="fade">

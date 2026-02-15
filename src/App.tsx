@@ -8,6 +8,7 @@ import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
 import { DetailPage } from './components/DetailPage';
 import { MyLearningPage } from './components/MyLearningPage';
+import apiService from './services/api';
 
 type Page = 'register' | 'login' | 'home' | 'detail' | 'my-learning';
 
@@ -81,8 +82,10 @@ export default function App() {
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('diy_current_user');
+    await apiService.logout();
     setCurrentUser(null);
     setCurrentPage('home');
+    Toast.show({ type: 'success', text1: 'Logged out', text2: 'Anda telah keluar' });
   };
 
   return (

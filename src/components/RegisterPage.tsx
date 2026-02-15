@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Logo } from './ui/Logo';
 import { Label } from './ui/Label';
 import { Checkbox } from './ui/Checkbox';
 import { Select } from './ui/Select';
+import apiService from '../services/api';
 
 interface RegisterPageProps {
   onNavigate: (page: string) => void;
@@ -24,9 +27,10 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   const [formData, setFormData] = useState({
     name: '', username: '', email: '', password: '', confirmPassword: '',
     karangTarunaName: '', provinsi: '', kabupatenKota: '', kecamatan: '', jalan: '',
-    phone: '', interests: [] as string[], skillLevel: '', role: '',
+    phone: '', interests: [] as string[], skillLevel: '', peranAnggota: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateForm = () => {
     const e: Record<string, string> = {};
@@ -56,30 +60,51 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    const usersJson = await AsyncStorage.getItem('diy_users');
-    const users = usersJson ? JSON.parse(usersJson) : [];
-
-    if (users.some((u: any) => u.email === formData.email)) {
-      setErrors({ email: 'Email sudah terdaftar' });
-      return;
+    setIsLoading(true);
+    try {
+      const user = await apiService.register({
+        name: formData.name,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        karangTarunaName: formData.karangTarunaName,
+        provinsi: formData.provinsi,
+        kabupatenKota: formData.kabupatenKota,
+        kecamatan: formData.kecamatan,
+        jalan: formData.jalan,
+        phone: formData.phone,
+        interests: formData.interests,
+        skillLevel: formData.skillLevel,
+        peranAnggota: formData.peranAnggota,
+      });
+      
+      // Save user data to AsyncStorage
+      await AsyncStorage.setItem('diy_current_user', JSON.stringify(user));
+      
+      Toast.show({ 
+        type: 'success', 
+        text1: 'Registrasi berhasil!', 
+        text2: `Selamat bergabung, ${user.username}!` 
+      });
+      
+      // Navigate to home after successful registration
+      onNavigate('home');
+    } catch (error: any) {
+      if (error.message.includes('User already exists')) {
+        setErrors({ email: 'Email sudah terdaftar' });
+      } else if (error.message.includes('username')) {
+        setErrors({ username: 'Username sudah digunakan' });
+      } else {
+        setErrors({ email: error.message || 'Registrasi gagal' });
+      }
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Registrasi gagal', 
+        text2: error.message || 'Silakan coba lagi.' 
+      });
+    } finally {
+      setIsLoading(false);
     }
-    if (users.some((u: any) => u.username === formData.username)) {
-      setErrors({ username: 'Username sudah digunakan' });
-      return;
-    }
-
-    const newUser = {
-      name: formData.name, username: formData.username, email: formData.email,
-      password: formData.password, karangTarunaName: formData.karangTarunaName,
-      address: { provinsi: formData.provinsi, kabupatenKota: formData.kabupatenKota, kecamatan: formData.kecamatan, jalan: formData.jalan },
-      phone: formData.phone, interests: formData.interests, skillLevel: formData.skillLevel,
-      role: formData.role, createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    await AsyncStorage.setItem('diy_users', JSON.stringify(users));
-    Toast.show({ type: 'success', text1: 'Registrasi berhasil!', text2: 'Silakan login.' });
-    onNavigate('login');
   };
 
   const renderField = (label: string, key: string, placeholder: string, opts?: any) => (
@@ -100,7 +125,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <MaterialIcons name="chevron-left" size={28} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Daftar Akun</Text>
       </View>
@@ -108,14 +133,12 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Logo */}
         <View style={styles.logoRow}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>KT</Text>
-          </View>
+          <Logo size={60} />
         </View>
 
         {/* Data Pribadi */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>👤 Data Pribadi</Text>
+          <Text style={styles.sectionTitle}><MaterialIcons name="person" size={16} color="#666" /> Data Pribadi</Text>
           {renderField('Nama Lengkap *', 'name', 'Nama lengkap Anda')}
           {renderField('Username *', 'username', 'Username unik')}
           {renderField('Email *', 'email', 'nama@email.com', { keyboardType: 'email-address', autoCapitalize: 'none' })}
@@ -128,7 +151,7 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Informasi Karang Taruna</Text>
           {renderField('Nama Karang Taruna *', 'karangTarunaName', 'Karang Taruna Mekar Jaya')}
-          {renderField('Peran Anggota', 'role', 'Ketua, Sekretaris, Anggota, dll.')}
+          {renderField('Peran Anggota', 'peranAnggota', 'Ketua, Sekretaris, Anggota, dll.')}
         </View>
 
         {/* Alamat */}
@@ -172,8 +195,12 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         </View>
 
         {/* Submit */}
-        <Button onPress={handleSubmit} style={styles.submitBtn}>
-          <Text style={styles.submitBtnText}>Daftar Sekarang</Text>
+        <Button onPress={handleSubmit} style={styles.submitBtn} disabled={isLoading}>
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <Text style={styles.submitBtnText}>Daftar Sekarang</Text>
+          )}
         </Button>
 
         <View style={styles.footer}>

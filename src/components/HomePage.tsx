@@ -1,106 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
+import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
+import { Logo } from './ui/Logo';
+import { Input } from './ui/Input';
+import apiService from '../services/api';
 
 interface Tutorial {
-  id: number;
+  _id: string;
   title: string;
   description: string;
   category: string;
   difficulty: string;
   duration: string;
   type: 'video' | 'artikel';
-  image: string;
+  imageUrl: string;
   createdAt: string;
 }
 
 interface HomePageProps {
   user: any | null;
-  onNavigate: (page: string, tutorialId?: number) => void;
+  onNavigate: (page: string, tutorialId?: string) => void;
   onLogout: () => void;
 }
 
-const tutorials: Tutorial[] = [
-  {
-    id: 1,
-    title: 'Cara Memperbaiki Keran Air yang Bocor',
-    description: 'Pelajari teknik dasar memperbaiki keran air yang bocor dengan mudah dan cepat.',
-    category: 'Plambing',
-    difficulty: 'Pemula',
-    duration: '15 menit',
-    type: 'video',
-    image: 'https://images.unsplash.com/photo-1681249537103-9e0c7316d91e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwbHVtYmluZyUyMHJlcGFpciUyMHR1dG9yaWFsfGVufDF8fHx8MTc3MDY2MDMxM3ww&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-02-05',
-  },
-  {
-    id: 2,
-    title: 'Instalasi Listrik Dasar untuk Rumah',
-    description: 'Panduan lengkap instalasi listrik sederhana yang aman untuk pemula.',
-    category: 'Listrik',
-    difficulty: 'Menengah',
-    duration: '25 menit',
-    type: 'artikel',
-    image: 'https://images.unsplash.com/photo-1767514536575-82aaf8b0afc4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVjdHJpY2FsJTIwd2lyaW5nJTIwcmVwYWlyfGVufDF8fHx8MTc3MDY2MDMxNHww&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-02-03',
-  },
-  {
-    id: 3,
-    title: 'Teknik Mengecat Dinding dengan Rapi',
-    description: 'Tips dan trik mengecat dinding rumah agar hasilnya profesional dan tahan lama.',
-    category: 'Pengecatan',
-    difficulty: 'Pemula',
-    duration: '20 menit',
-    type: 'video',
-    image: 'https://images.unsplash.com/photo-1523250217488-ab35967e9840?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYWludGluZyUyMHdhbGwlMjBob21lfGVufDF8fHx8MTc3MDY2MDMxNHww&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-02-07',
-  },
-  {
-    id: 4,
-    title: 'Membuat Rak Kayu Sederhana',
-    description: 'Proyek DIY membuat rak kayu multifungsi untuk penyimpanan di rumah.',
-    category: 'Pertukangan Kayu',
-    difficulty: 'Menengah',
-    duration: '45 menit',
-    type: 'video',
-    image: 'https://images.unsplash.com/flagged/photo-1596715932857-56e359217a94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b29kd29ya2luZyUyMGNyYWZ0c21hbnNoaXB8ZW58MXx8fHwxNzcwNjM2ODczfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-01-28',
-  },
-  {
-    id: 5,
-    title: 'Perawatan Alat-Alat Pertukangan',
-    description: 'Cara merawat dan menyimpan alat pertukangan agar awet dan siap pakai.',
-    category: 'Perawatan',
-    difficulty: 'Pemula',
-    duration: '10 menit',
-    type: 'artikel',
-    image: 'https://images.unsplash.com/photo-1765518440022-10242cc86895?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob21lJTIwbWFpbnRlbmFuY2UlMjB0b29sc3xlbnwxfHx8fDE3NzA2NTY3Mzd8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-02-01',
-  },
-  {
-    id: 6,
-    title: 'Dasar-Dasar Penggunaan Alat Pertukangan',
-    description: 'Kenali berbagai jenis alat pertukangan dan cara penggunaannya yang benar.',
-    category: 'Pertukangan Kayu',
-    difficulty: 'Pemula',
-    duration: '30 menit',
-    type: 'artikel',
-    image: 'https://images.unsplash.com/photo-1683115098652-db9813ecf284?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYXJwZW50cnklMjB0b29scyUyMHdvcmtzaG9wfGVufDF8fHx8MTc3MDY2MDMxM3ww&ixlib=rb-4.1.0&q=80&w=1080',
-    createdAt: '2025-02-08',
-  },
-];
-
-const categories = ['Semua', 'Pertukangan Kayu', 'Pengecatan', 'Listrik', 'Plambing', 'Perawatan'];
-
 export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [tutorials, setTutorials] = useState<Tutorial[]>([]);
+  const [filteredTutorials, setFilteredTutorials] = useState<Tutorial[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [learningData, setLearningData] = useState<any[]>([]);
@@ -112,6 +49,8 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
   const [filterProgress, setFilterProgress] = useState<'all' | 'ongoing' | 'completed'>('all');
   const [filterDifficulty, setFilterDifficulty] = useState<'all' | 'Pemula' | 'Menengah' | 'Mahir'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'duration-short' | 'duration-long'>('newest');
+
+  const categories = ['Semua', 'Pertukangan Kayu', 'Pengecatan', 'Listrik', 'Plambing', 'Perawatan'];
 
   useEffect(() => {
     const loadLearning = async () => {
@@ -125,28 +64,75 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
     loadLearning();
   }, [user]);
 
-  const getTutorialStatus = (tutorialId: number) => {
+  useEffect(() => {
+    loadTutorials();
+  }, []);
+
+  useEffect(() => {
+    filterTutorials();
+  }, [tutorials, searchQuery, selectedCategory]);
+
+  const loadTutorials = async () => {
+    setIsLoading(true);
+    try {
+      const data = await apiService.getTutorials();
+      setTutorials(data);
+    } catch (error) {
+      console.error('Failed to load tutorials:', error);
+      setTutorials([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filterTutorials = () => {
+    let filtered = tutorials;
+    
+    // Filter by category
+    if (selectedCategory !== 'Semua') {
+      filtered = filtered.filter(t => t.category === selectedCategory);
+    }
+    
+    // Filter by search query
+    if (searchQuery) {
+      filtered = filtered.filter(t => 
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    setFilteredTutorials(filtered);
+  };
+
+  const getTutorialStatus = (tutorialId: string) => {
     if (!user) return null;
     const learning = learningData.find((item: any) => item.tutorialId === tutorialId);
     if (!learning) return null;
     return learning.completed ? 'completed' : 'ongoing';
   };
 
-  const parseDuration = (duration: string): number => {
-    const match = duration.match(/(\d+)/);
-    return match ? parseInt(match[1]) : 0;
+
+  const formatDuration = (duration: string): string => {
+    const minutes = parseInt(duration);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (hours > 0) {
+      return `${hours}j ${remainingMinutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   const filteredAndSortedTutorials = tutorials
     .filter((tutorial) => {
       const matchesSearch =
-        tutorial.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tutorial.description.toLowerCase().includes(searchTerm.toLowerCase());
+        tutorial.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tutorial.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'Semua' || tutorial.category === selectedCategory;
 
       let matchesProgress = true;
       if (user && filterProgress !== 'all') {
-        const status = getTutorialStatus(tutorial.id);
+        const status = getTutorialStatus(tutorial._id);
         if (filterProgress === 'ongoing') matchesProgress = status === 'ongoing';
         else if (filterProgress === 'completed') matchesProgress = status === 'completed';
       }
@@ -173,7 +159,7 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
     }
   };
 
-  const handleViewDetail = (tutorialId: number) => {
+  const handleViewDetail = (tutorialId: string) => {
     if (!user) {
       onNavigate('login', tutorialId);
     } else {
@@ -188,11 +174,9 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerRow}>
-            <View style={styles.logoPlaceholder}>
-              <Text style={styles.logoText}>KT</Text>
-            </View>
-            <Text style={styles.headerTitle}>Profil</Text>
-          </View>
+          <Logo size={32} />
+          <Text style={styles.headerTitle}>Profil</Text>
+        </View>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
@@ -216,46 +200,58 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                   <Text style={styles.labelSmall}>Karang Taruna</Text>
                   <Text style={styles.valueText}>{user.karangTarunaName || '-'}</Text>
                 </View>
-                {user.role && (
-                  <View>
-                    <Text style={styles.labelSmall}>Peran</Text>
-                    <Text style={styles.valueText}>{user.role}</Text>
-                  </View>
-                )}
-                {user.skillLevel && (
-                  <View>
-                    <Text style={styles.labelSmall}>Tingkat Keahlian</Text>
+                <View>
+                  <Text style={styles.labelSmall}>Peran Anggota</Text>
+                  <Text style={styles.valueText}>{user.peranAnggota || '-'}</Text>
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Tingkat Keahlian</Text>
+                  {user.skillLevel ? (
                     <Badge
                       style={{ backgroundColor: getDifficultyColor(user.skillLevel).bg }}
                       textStyle={{ color: getDifficultyColor(user.skillLevel).text }}
                     >
                       {user.skillLevel}
                     </Badge>
-                  </View>
-                )}
-                {user.interests && user.interests.length > 0 && (
-                  <View>
-                    <Text style={styles.labelSmall}>Minat DIY</Text>
+                  ) : (
+                    <Text style={styles.valueText}>-</Text>
+                  )}
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Minat DIY</Text>
+                  {user.interests && user.interests.length > 0 ? (
                     <View style={styles.tagRow}>
                       {user.interests.map((interest: string) => (
                         <Badge key={interest} variant="secondary">{interest}</Badge>
                       ))}
                     </View>
-                  </View>
-                )}
-                {user.address && (
-                  <View>
-                    <Text style={styles.labelSmall}>Domisili</Text>
-                    <Text style={styles.valueTextSm}>{user.address.kecamatan}, {user.address.kabupatenKota}</Text>
-                    <Text style={[styles.valueTextSm, { color: '#6b7280' }]}>{user.address.provinsi}</Text>
-                  </View>
-                )}
-                {user.phone && (
-                  <View>
-                    <Text style={styles.labelSmall}>Nomor Telepon</Text>
-                    <Text style={styles.valueText}>{user.phone}</Text>
-                  </View>
-                )}
+                  ) : (
+                    <Text style={styles.valueText}>-</Text>
+                  )}
+                </View>
+
+                <View style={styles.divider} />
+
+                <View>
+                  <Text style={styles.labelSmall}>Provinsi</Text>
+                  <Text style={styles.valueText}>{user.provinsi || '-'}</Text>
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Kabupaten/Kota</Text>
+                  <Text style={styles.valueText}>{user.kabupatenKota || '-'}</Text>
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Kecamatan</Text>
+                  <Text style={styles.valueText}>{user.kecamatan || '-'}</Text>
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Jalan</Text>
+                  <Text style={styles.valueText}>{user.jalan || '-'}</Text>
+                </View>
+                <View>
+                  <Text style={styles.labelSmall}>Nomor Telepon</Text>
+                  <Text style={styles.valueText}>{user.phone || '-'}</Text>
+                </View>
               </View>
 
               <Button
@@ -270,7 +266,7 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
           ) : (
             <View style={[styles.card, { alignItems: 'center', paddingVertical: 32 }]}>
               <View style={styles.emptyAvatar}>
-                <Text style={{ fontSize: 40, color: '#9ca3af' }}>👤</Text>
+                <MaterialIcons name="person" size={40} color="#9ca3af" />
               </View>
               <Text style={styles.emptyTitle}>Belum Login</Text>
               <Text style={styles.emptySubtitle}>Login untuk mengakses fitur lengkap</Text>
@@ -287,15 +283,15 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
         {/* Bottom Navigation */}
         <View style={styles.bottomNav}>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}>
-            <Text style={styles.navIcon}>🏠</Text>
+            <MaterialIcons name="home" size={22} color="#6b7280" />
             <Text style={styles.navLabel}>Beranda</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => user ? onNavigate('my-learning') : onNavigate('login')}>
-            <Text style={styles.navIcon}>📖</Text>
+            <MaterialIcons name="menu-book" size={22} color="#6b7280" />
             <Text style={styles.navLabel}>Belajar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('profile')}>
-            <Text style={[styles.navIcon]}>👤</Text>
+            <MaterialIcons name="person" size={22} color="#6b7280" />
             <Text style={[styles.navLabel, styles.navActive]}>Profil</Text>
           </TouchableOpacity>
         </View>
@@ -309,9 +305,7 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View style={styles.logoPlaceholder}>
-            <Text style={styles.logoText}>KT</Text>
-          </View>
+          <Logo size={32} />
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Karang Taruna DIY</Text>
             {user && <Text style={styles.headerSubtitle}>Halo, {user.name}</Text>}
@@ -323,13 +317,13 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
           <View style={styles.searchRow}>
             <Input
               placeholder="Cari tutorial..."
-              value={searchTerm}
-              onChangeText={setSearchTerm}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
               style={{ flex: 1 }}
               autoFocus
             />
-            <TouchableOpacity onPress={() => { setSearchTerm(''); setShowSearch(false); }} style={styles.closeBtn}>
-              <Text style={{ fontSize: 18, color: '#6b7280' }}>✕</Text>
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setShowSearch(false); }} style={styles.closeBtn}>
+              <MaterialIcons name="close" size={18} color="#6b7280" />
             </TouchableOpacity>
           </View>
         )}
@@ -343,28 +337,28 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
             <Text style={styles.filterBtnText} numberOfLines={1}>
               {selectedCategory === 'Semua' ? 'Kategori' : selectedCategory}
             </Text>
-            <Text style={{ fontSize: 10, color: '#6b7280' }}>▼</Text>
+            <MaterialIcons name="keyboard-arrow-down" size={10} color="#6b7280" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.filterBtn, showSearch && styles.filterBtnActive]}
             onPress={() => setShowSearch(!showSearch)}
           >
-            <Text style={{ fontSize: 16 }}>🔍</Text>
+            <MaterialIcons name="search" size={16} color="#666" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.filterBtn, (showFilterMenu || filterProgress !== 'all' || filterDifficulty !== 'all') && styles.filterBtnActive]}
             onPress={() => { setShowFilterMenu(!showFilterMenu); setShowSortMenu(false); }}
           >
-            <Text style={{ fontSize: 16 }}>⚙️</Text>
+            <MaterialIcons name="settings" size={16} color="#666" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.filterBtn, (showSortMenu || sortBy !== 'newest') && styles.filterBtnActive]}
             onPress={() => { setShowSortMenu(!showSortMenu); setShowFilterMenu(false); }}
           >
-            <Text style={{ fontSize: 16 }}>↕️</Text>
+            <MaterialIcons name="sort" size={16} color="#666" />
           </TouchableOpacity>
         </View>
 
@@ -458,38 +452,42 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
           <Text style={styles.listCount}>{filteredAndSortedTutorials.length} tutorial</Text>
         </View>
 
-        {filteredAndSortedTutorials.length > 0 ? (
+        {isLoading ? (
+          <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+            <ActivityIndicator size="large" color="#dc2626" />
+            <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat tutorials...</Text>
+          </View>
+        ) : filteredAndSortedTutorials.length > 0 ? (
           filteredAndSortedTutorials.map((tutorial) => {
-            const status = getTutorialStatus(tutorial.id);
+            const status = getTutorialStatus(tutorial._id);
             const diffColor = getDifficultyColor(tutorial.difficulty);
             return (
               <TouchableOpacity
-                key={tutorial.id}
+                key={tutorial._id}
                 activeOpacity={0.8}
-                onPress={() => handleViewDetail(tutorial.id)}
+                onPress={() => handleViewDetail(tutorial._id)}
                 style={styles.tutorialCard}
               >
                 <View style={styles.tutorialImageContainer}>
                   <ImageWithFallback
-                    src={tutorial.image}
+                    src={tutorial.imageUrl}
                     alt={tutorial.title}
                     style={styles.tutorialImage}
                   />
                   <View style={styles.tutorialBadgeRow}>
                     {status === 'completed' && (
                       <Badge style={{ backgroundColor: '#16a34a' }}>
-                        <Text style={{ color: '#fff', fontSize: 11 }}>✓ Selesai</Text>
+                        <Text style={{ color: '#fff', fontSize: 11 }}><MaterialIcons name="check" size={14} color="#fff" /> Selesai</Text>
                       </Badge>
                     )}
                     {status === 'ongoing' && (
                       <Badge style={{ backgroundColor: '#ea580c' }}>
-                        <Text style={{ color: '#fff', fontSize: 11 }}>▶ Sedang Belajar</Text>
+                        <Text style={{ color: '#fff', fontSize: 11 }}><MaterialIcons name="play-arrow" size={14} color="#fff" /> Sedang Belajar</Text>
                       </Badge>
                     )}
-                    {!status && <View />}
                     <Badge style={{ backgroundColor: tutorial.type === 'video' ? '#dc2626' : '#2563eb' }}>
                       <Text style={{ color: '#fff', fontSize: 11 }}>
-                        {tutorial.type === 'video' ? '🎬 Video' : '📄 Artikel'}
+                        {tutorial.type === 'video' ? <><MaterialIcons name="videocam" size={14} color="#fff" /> Video</> : <><MaterialIcons name="description" size={14} color="#fff" /> Artikel</>}
                       </Text>
                     </Badge>
                   </View>
@@ -502,7 +500,7 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
                     <Badge style={{ backgroundColor: diffColor.bg }} textStyle={{ color: diffColor.text }}>
                       {tutorial.difficulty}
                     </Badge>
-                    <Text style={styles.durationText}>🕐 {tutorial.duration}</Text>
+                    <Text style={styles.durationText}><MaterialIcons name="access-time" size={14} color="#666" /> {formatDuration(tutorial.duration)}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -510,7 +508,8 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
           })
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>Tidak ada tutorial yang ditemukan</Text>
+            <Text style={styles.emptyStateText}>Tidak ada tutorial yang tersedia</Text>
+            <Text style={styles.emptyStateSubtext}>Tarik ke bawah untuk refresh</Text>
           </View>
         )}
       </ScrollView>
@@ -518,15 +517,15 @@ export function HomePage({ user, onNavigate, onLogout }: HomePageProps) {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}>
-          <Text style={styles.navIcon}>🏠</Text>
+          <MaterialIcons name="home" size={22} color="#6b7280" />
           <Text style={[styles.navLabel, styles.navActive]}>Beranda</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => user ? onNavigate('my-learning') : onNavigate('login')}>
-          <Text style={styles.navIcon}>📖</Text>
+          <MaterialIcons name="menu-book" size={22} color="#6b7280" />
           <Text style={styles.navLabel}>Belajar</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('profile')}>
-          <Text style={styles.navIcon}>👤</Text>
+          <MaterialIcons name="person" size={22} color="#6b7280" />
           <Text style={styles.navLabel}>Profil</Text>
         </TouchableOpacity>
       </View>
@@ -578,7 +577,8 @@ const styles = StyleSheet.create({
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   durationText: { fontSize: 12, color: '#6b7280' },
   emptyState: { alignItems: 'center', paddingVertical: 48, backgroundColor: '#fff', borderRadius: 16 },
-  emptyStateText: { color: '#6b7280', fontSize: 14 },
+  emptyStateText: { color: '#6b7280', fontSize: 14, fontWeight: '500' },
+  emptyStateSubtext: { color: '#9ca3af', fontSize: 12, marginTop: 4 },
   bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb', flexDirection: 'row', paddingVertical: 8, paddingBottom: 16 },
   navItem: { flex: 1, alignItems: 'center', gap: 2 },
   navIcon: { fontSize: 22 },

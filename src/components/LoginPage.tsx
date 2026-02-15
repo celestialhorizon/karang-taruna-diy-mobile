@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Button } from './ui/Button';
+import { Logo } from './ui/Logo';
 import { Label } from './ui/Label';
+import apiService from '../services/api';
 
 interface LoginPageProps {
   onNavigate: (page: string) => void;
@@ -15,6 +18,7 @@ interface LoginPageProps {
 export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
     const newErrors: Record<string, string> = {};
@@ -23,18 +27,25 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length === 0) {
-      const usersJson = await AsyncStorage.getItem('diy_users');
-      const users = usersJson ? JSON.parse(usersJson) : [];
-      const user = users.find((u: any) => u.email === formData.email && u.password === formData.password);
-
-      if (user) {
+      setIsLoading(true);
+      try {
+        const user = await apiService.login(formData.email, formData.password);
+        
+        // Save user data to AsyncStorage
         await AsyncStorage.setItem('diy_current_user', JSON.stringify(user));
-        Toast.show({ type: 'success', text1: `Selamat datang, ${user.name}!` });
+        
+        Toast.show({ type: 'success', text1: `Selamat datang, ${user.name || user.username}!` });
         onLogin(user);
         onNavigate('home');
-      } else {
-        setErrors({ password: 'Email atau password salah' });
-        Toast.show({ type: 'error', text1: 'Login gagal', text2: 'Periksa kembali email dan password Anda.' });
+      } catch (error: any) {
+        setErrors({ password: error.message || 'Email atau password salah' });
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Login gagal', 
+          text2: error.message || 'Periksa kembali email dan password Anda.' 
+        });
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -44,7 +55,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <MaterialIcons name="chevron-left" size={28} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Login</Text>
       </View>
@@ -52,9 +63,7 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>KT</Text>
-          </View>
+          <Logo size={60} />
         </View>
 
         <Text style={styles.title}>Selamat Datang Kembali!</Text>
@@ -87,8 +96,12 @@ export function LoginPage({ onNavigate, onLogin }: LoginPageProps) {
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
-            <Button onPress={handleSubmit} style={styles.submitBtn}>
-              <Text style={styles.submitBtnText}>Login</Text>
+            <Button onPress={handleSubmit} style={styles.submitBtn} disabled={isLoading}>
+              {isLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Login</Text>
+              )}
             </Button>
           </View>
         </View>

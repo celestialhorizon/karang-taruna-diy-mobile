@@ -1,84 +1,148 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
+import { Logo } from './ui/Logo';
+import apiService from '../services/api';
 
 interface MyLearningPageProps {
   user: any;
-  onNavigate: (page: string, tutorialId?: number) => void;
+  onNavigate: (page: string, tutorialId?: string) => void;
   onLogout: () => void;
 }
 
-const tutorialData: Record<number, any> = {
-  1: { id: 1, title: 'Cara Memperbaiki Keran Air yang Bocor', category: 'Plambing', image: 'https://images.unsplash.com/photo-1681249537103-9e0c7316d91e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwbHVtYmluZyUyMHJlcGFpciUyMHR1dG9yaWFsfGVufDF8fHx8MTc3MDY2MDMxM3ww&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 7 },
-  2: { id: 2, title: 'Instalasi Listrik Dasar untuk Rumah', category: 'Listrik', image: 'https://images.unsplash.com/photo-1767514536575-82aaf8b0afc4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbGVjdHJpY2FsJTIwd2lyaW5nJTIwcmVwYWlyfGVufDF8fHx8MTc3MDY2MDMxNHww&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 8 },
-  3: { id: 3, title: 'Teknik Mengecat Dinding dengan Rapi', category: 'Pengecatan', image: 'https://images.unsplash.com/photo-1523250217488-ab35967e9840?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYWludGluZyUyMHdhbGwlMjBob21lfGVufDF8fHx8MTc3MDY2MDMxNHww&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 8 },
-  4: { id: 4, title: 'Membuat Rak Kayu Sederhana', category: 'Pertukangan Kayu', image: 'https://images.unsplash.com/flagged/photo-1596715932857-56e359217a94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b29kd29ya2luZyUyMGNyYWZ0c21hbnNoaXB8ZW58MXx8fHwxNzcwNjM2ODczfDA&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 8 },
-  5: { id: 5, title: 'Perawatan Alat-Alat Pertukangan', category: 'Perawatan', image: 'https://images.unsplash.com/photo-1765518440022-10242cc86895?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob21lJTIwbWFpbnRlbmFuY2UlMjB0b29sc3xlbnwxfHx8fDE3NzA2NTY3Mzd8MA&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 6 },
-  6: { id: 6, title: 'Dasar-Dasar Penggunaan Alat Pertukangan', category: 'Pertukangan Kayu', image: 'https://images.unsplash.com/photo-1683115098652-db9813ecf284?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYXJwZW50cnklMjB0b29scyUyMHdvcmtzaG9wfGVufDF8fHx8MTc3MDY2MDMxM3ww&ixlib=rb-4.1.0&q=80&w=1080', totalSteps: 5 },
-};
+interface Tutorial {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  duration: number;
+  type: 'video' | 'artikel';
+  imageUrl: string;
+  createdAt: string;
+  steps?: Array<{
+    stepNumber: number;
+    title: string;
+    description: string;
+    imageUrl?: string;
+    safetyNote?: string;
+  }>;
+}
 
 export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
   const [activeTab, setActiveTab] = useState<'ongoing' | 'completed'>('ongoing');
   const [learningData, setLearningData] = useState<any[]>([]);
+  const [tutorials, setTutorials] = useState<Tutorial[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadLearningData();
+    loadData();
   }, [user]);
 
-  const loadLearningData = async () => {
+  const loadData = async () => {
     if (!user) return;
-    const data = await AsyncStorage.getItem(`learning_${user.email}`);
-    setLearningData(data ? JSON.parse(data) : []);
+    try {
+      setLoading(true);
+      // Load user progress from API
+      const progressData = await apiService.getUserProgress();
+      console.log('Progress data:', progressData);
+      setLearningData(progressData || []);
+      
+      // Load all tutorials
+      const tutorialsData = await apiService.getTutorials();
+      console.log('Tutorials data:', tutorialsData);
+      setTutorials(tutorialsData || []);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getTutorialProgress = async (tutorialId: number) => {
-    const progressKey = `progress_${user.email}_${tutorialId}`;
-    const saved = await AsyncStorage.getItem(progressKey);
-    const progress = saved ? JSON.parse(saved) : { currentStep: 1, completedSteps: [] };
-    const tutorial = tutorialData[tutorialId];
-    const totalSteps = tutorial?.totalSteps || 1;
+  const getTutorialProgress = (tutorialId: string) => {
+    // Find progress where tutorial._id matches tutorialId
+    const progress = learningData.find((item: any) => {
+      // item.tutorial could be an ObjectId or populated object
+      if (typeof item.tutorial === 'object' && item.tutorial !== null) {
+        return item.tutorial._id === tutorialId;
+      }
+      return item.tutorial === tutorialId;
+    });
+    
+    if (!progress) {
+      console.log('No progress found for tutorialId:', tutorialId);
+      return null;
+    }
+    
+    // If tutorial is populated, use it directly
+    let tutorial = null;
+    if (typeof progress.tutorial === 'object' && progress.tutorial !== null) {
+      tutorial = progress.tutorial;
+    } else {
+      // Otherwise find it in tutorials array
+      tutorial = tutorials.find((t: Tutorial) => t._id === tutorialId);
+    }
+    
+    const totalSteps = tutorial?.steps?.length || 1;
     const completedCount = progress.completedSteps?.length || 0;
-    const percentage = Math.round((completedCount / totalSteps) * 100);
-    return { ...progress, percentage, completedCount, totalSteps };
+    const percentage = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+    
+    const result = {
+      ...progress,
+      tutorialId: typeof progress.tutorial === 'object' ? progress.tutorial._id : progress.tutorial,
+      percentage,
+      completedCount,
+      totalSteps,
+      tutorial,
+      completed: progress.isCompleted
+    };
+    
+    console.log('Progress result for', tutorialId, ':', result);
+    return result;
   };
 
-  const ongoingTutorials = learningData.filter((item) => !item.completed);
-  const completedTutorials = learningData.filter((item) => item.completed);
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}j ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
 
-  const TutorialCard = ({ tutorialId, isCompleted }: { tutorialId: number; isCompleted: boolean }) => {
-    const tutorial = tutorialData[tutorialId];
-    const [progress, setProgress] = useState<any>({ percentage: 0, completedCount: 0, totalSteps: 1 });
+  const ongoingTutorials = learningData.filter((item) => !item.isCompleted);
+  const completedTutorials = learningData.filter((item) => item.isCompleted);
 
-    useEffect(() => {
-      getTutorialProgress(tutorialId).then(setProgress);
-    }, [tutorialId]);
-
-    if (!tutorial) return null;
-
+  const TutorialCard = ({ progress }: { progress: any }) => {
+    if (!progress.tutorial) return null;
+    
     return (
       <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => onNavigate('detail', tutorialId)}
         style={styles.tutorialCard}
+        onPress={() => onNavigate('detail', progress.tutorialId)}
+        activeOpacity={0.8}
       >
-        <View style={{ height: 160, position: 'relative' }}>
-          <ImageWithFallback src={tutorial.image} alt={tutorial.title} style={{ width: '100%', height: 160 }} />
-          {isCompleted && (
-            <View style={styles.completedBadge}>
-              <Text style={{ color: '#fff', fontSize: 16 }}>✓</Text>
-            </View>
-          )}
-        </View>
+        <ImageWithFallback
+          src={progress.tutorial.imageUrl}
+          alt={progress.tutorial.title}
+          style={{ width: '100%', height: 160 }}
+        />
+        {progress.completed && (
+          <View style={styles.completedBadge}>
+            <MaterialIcons name="check" size={16} color="#fff" />
+          </View>
+        )}
         <View style={{ padding: 16 }}>
-          <Badge variant="secondary" style={{ marginBottom: 8 }}>{tutorial.category}</Badge>
-          <Text style={styles.cardTitle} numberOfLines={2}>{tutorial.title}</Text>
+          <Badge variant="secondary" style={{ marginBottom: 8 }}>{progress.tutorial.category}</Badge>
+          <Text style={styles.cardTitle}>{progress.tutorial.title}</Text>
 
-          {!isCompleted && (
+          {!progress.completed && (
             <View style={{ marginTop: 12, gap: 6 }}>
               <View style={styles.progressRow}>
                 <Text style={styles.progressLabel}>Progress</Text>
@@ -88,13 +152,25 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
               <Text style={styles.progressDetail}>
                 {progress.completedCount} dari {progress.totalSteps} langkah selesai
               </Text>
+              <View style={styles.progressRow}>
+                <Text style={styles.progressLabel}><MaterialIcons name="timer" size={14} color="#6b7280" /> Waktu</Text>
+                <Text style={styles.progressValue}>{formatTime(progress.timeSpent || 0)}</Text>
+              </View>
             </View>
           )}
 
-          {isCompleted && (
+          {progress.completed && (
             <View style={styles.completedRow}>
-              <Text style={{ color: '#16a34a', fontSize: 14 }}>✓</Text>
+              <MaterialIcons name="check" size={14} color="#16a34a" />
               <Text style={styles.completedText}>Tutorial Selesai</Text>
+            </View>
+          )}
+
+          {/* Always show time spent for completed tutorials */}
+          {progress.completed && progress.timeSpent > 0 && (
+            <View style={styles.completedRow}>
+              <MaterialIcons name="timer" size={14} color="#6b7280" />
+              <Text style={{ fontSize: 12, color: '#6b7280' }}>{formatTime(progress.timeSpent)}</Text>
             </View>
           )}
         </View>
@@ -107,22 +183,32 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <MaterialIcons name="chevron-left" size={28} color="#374151" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pembelajaran Saya</Text>
+        <View style={styles.headerRow}>
+          <Logo size={32} />
+          <Text style={styles.headerTitle}>Pembelajaran Saya</Text>
+        </View>
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
-          <Text style={[styles.statLabel, { color: '#dc2626' }]}>Sedang Belajar</Text>
-          <Text style={[styles.statValue, { color: '#dc2626' }]}>{ongoingTutorials.length}</Text>
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#dc2626" />
+          <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat data...</Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
-          <Text style={[styles.statLabel, { color: '#16a34a' }]}>Selesai</Text>
-          <Text style={[styles.statValue, { color: '#16a34a' }]}>{completedTutorials.length}</Text>
-        </View>
-      </View>
+      ) : (
+        <>
+          {/* Stats */}
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: '#fef2f2', borderColor: '#fecaca' }]}>
+              <Text style={[styles.statLabel, { color: '#dc2626' }]}>Sedang Belajar</Text>
+              <Text style={[styles.statValue, { color: '#dc2626' }]}>{ongoingTutorials.length}</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }]}>
+              <Text style={[styles.statLabel, { color: '#16a34a' }]}>Selesai</Text>
+              <Text style={[styles.statValue, { color: '#16a34a' }]}>{completedTutorials.length}</Text>
+            </View>
+          </View>
 
       {/* Tabs */}
       <View style={styles.tabRow}>
@@ -131,7 +217,7 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
           style={[styles.tab, activeTab === 'ongoing' && styles.tabActive]}
         >
           <Text style={[styles.tabText, activeTab === 'ongoing' && styles.tabTextActive]}>
-            🕐 Sedang Belajar ({ongoingTutorials.length})
+            <MaterialIcons name="access-time" size={16} color="#666" /> Sedang Belajar ({ongoingTutorials.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -139,7 +225,7 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
           style={[styles.tab, activeTab === 'completed' && styles.tabActive]}
         >
           <Text style={[styles.tabText, activeTab === 'completed' && styles.tabTextActive]}>
-            ✓ Selesai ({completedTutorials.length})
+            <MaterialIcons name="check" size={16} color="#16a34a" /> Selesai ({completedTutorials.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -148,12 +234,19 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80 }}>
         {activeTab === 'ongoing' && (
           ongoingTutorials.length > 0 ? (
-            ongoingTutorials.map((item) => (
-              <TutorialCard key={item.tutorialId} tutorialId={item.tutorialId} isCompleted={false} />
-            ))
+            ongoingTutorials
+              .map((item) => {
+                const tutorialId = typeof item.tutorial === 'object' ? item.tutorial._id : item.tutorial;
+                const progress = getTutorialProgress(tutorialId);
+                return progress ? { ...item, progress } : null;
+              })
+              .filter((item): item is NonNullable<typeof item> => item !== null)
+              .map((item) => (
+                <TutorialCard key={item.progress.tutorialId} progress={item.progress} />
+              ))
           ) : (
             <View style={styles.emptyState}>
-              <Text style={{ fontSize: 40, marginBottom: 16 }}>📖</Text>
+              <MaterialIcons name="menu-book" size={40} color="#9ca3af" />
               <Text style={styles.emptyTitle}>Belum Ada Tutorial</Text>
               <Text style={styles.emptySubtitle}>Mulai belajar tutorial baru dari beranda</Text>
               <Button onPress={() => onNavigate('home')} style={{ marginTop: 16 }}>
@@ -165,12 +258,19 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
 
         {activeTab === 'completed' && (
           completedTutorials.length > 0 ? (
-            completedTutorials.map((item) => (
-              <TutorialCard key={item.tutorialId} tutorialId={item.tutorialId} isCompleted={true} />
-            ))
+            completedTutorials
+              .map((item) => {
+                const tutorialId = typeof item.tutorial === 'object' ? item.tutorial._id : item.tutorial;
+                const progress = getTutorialProgress(tutorialId);
+                return progress ? { ...item, progress } : null;
+              })
+              .filter((item): item is NonNullable<typeof item> => item !== null)
+              .map((item) => (
+                <TutorialCard key={item.progress.tutorialId} progress={item.progress} />
+              ))
           ) : (
             <View style={styles.emptyState}>
-              <Text style={{ fontSize: 40, marginBottom: 16 }}>✓</Text>
+              <MaterialIcons name="check-circle" size={40} color="#9ca3af" />
               <Text style={styles.emptyTitle}>Belum Ada yang Selesai</Text>
               <Text style={styles.emptySubtitle}>Selesaikan tutorial untuk melihatnya di sini</Text>
             </View>
@@ -181,26 +281,29 @@ export function MyLearningPage({ user, onNavigate }: MyLearningPageProps) {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('home')}>
-          <Text style={styles.navIcon}>🏠</Text>
+          <MaterialIcons name="home" size={22} color="#6b7280" />
           <Text style={styles.navLabel}>Beranda</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>📖</Text>
+          <MaterialIcons name="menu-book" size={22} color="#dc2626" />
           <Text style={[styles.navLabel, styles.navActive]}>Belajar</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('home')}>
-          <Text style={styles.navIcon}>👤</Text>
+          <MaterialIcons name="person" size={22} color="#6b7280" />
           <Text style={styles.navLabel}>Profil</Text>
         </TouchableOpacity>
       </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f9fafb' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 12 },
-  backBtn: { padding: 8, marginLeft: -8 },
+  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: { padding: 8, marginLeft: -8, marginRight: 8 },
   backIcon: { fontSize: 28, color: '#374151', fontWeight: '300' },
   headerTitle: { fontWeight: '600', fontSize: 16, color: '#111827' },
   statsRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
@@ -224,7 +327,7 @@ const styles = StyleSheet.create({
   emptyState: { backgroundColor: '#fff', borderRadius: 16, padding: 48, alignItems: 'center', marginTop: 8 },
   emptyTitle: { fontWeight: '600', fontSize: 18, color: '#111827', marginBottom: 8 },
   emptySubtitle: { fontSize: 14, color: '#6b7280', textAlign: 'center' },
-  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb', flexDirection: 'row', paddingVertical: 8, paddingBottom: 16 },
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e5e7eb', flexDirection: 'row', paddingVertical: 8 },
   navItem: { flex: 1, alignItems: 'center', gap: 2 },
   navIcon: { fontSize: 22 },
   navLabel: { fontSize: 11, color: '#6b7280' },

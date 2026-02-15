@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import { StepVideo } from './ui/StepVideo';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { Progress } from './ui/Progress';
 import { ImageWithFallback } from './ui/ImageWithFallback';
+import apiService from '../services/api';
 
 interface DetailPageProps {
-  tutorialId: number;
+  tutorialId: string;
   user: any;
   onNavigate: (page: string) => void;
 }
@@ -37,6 +40,7 @@ const tutorialDetails: Record<number, any> = {
         ],
         tips: 'Foto posisi keran sebelum dibongkar agar mudah saat memasang kembali',
         imageUrl: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800',
+        videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
       },
       {
         title: 'Melepas Pegangan Keran',
@@ -109,32 +113,117 @@ const tutorialDetails: Record<number, any> = {
 };
 
 export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
+  const [tutorial, setTutorial] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [displayTime, setDisplayTime] = useState<number>(0);
+  const totalTimeSpentRef = useRef<number>(0);
+  const sessionStartRef = useRef<number>(Date.now());
+  const isReadyRef = useRef<boolean>(false);
 
-  const tutorial = tutorialDetails[tutorialId] || tutorialDetails[1];
-  const totalSteps = tutorial.steps.length;
-  const progress = Math.round((completedSteps.length / totalSteps) * 100);
+  useEffect(() => {
+    loadTutorial();
+  }, [tutorialId]);
+
+  useEffect(() => {
+    if (tutorial) {
+      loadProgress();
+      addToLearning();
+      sessionStartRef.current = Date.now();
+      isReadyRef.current = true;
+    }
+  }, [tutorial]);
+
+  // Track time spent - only runs once
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(() => {
+      if (!isReadyRef.current) return;
+      
+      const currentTime = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      
+      // Display total time (saved + current session)
+      setDisplayTime(totalTimeSpentRef.current + currentTime);
+      
+      // Save to database every 60 seconds
+      if (currentTime >= 60) {
+        const newTotalTime = totalTimeSpentRef.current + currentTime;
+        console.log('Saving time after 60 seconds:', currentTime);
+        apiService.updateTimeSpent(tutorialId, currentTime).catch(error => {
+          console.error('Failed to save time spent:', error);
+        });
+        
+        sessionStartRef.current = Date.now();
+        totalTimeSpentRef.current = newTotalTime;
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      // Save remaining time only when leaving the page
+      if (isReadyRef.current && user) {
+        const finalTime = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        console.log('Saving time on unmount:', finalTime);
+        apiService.updateTimeSpent(tutorialId, finalTime).catch(error => {
+          console.error('Failed to save final time spent:', error);
+        });
+      }
+    };
+  }, [user, tutorialId]); // No sessionStartTime dependency!
+
+  const loadTutorial = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getTutorialById(tutorialId);
+      setTutorial(data);
+    } catch (error) {
+      console.error('Failed to load tutorial:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Gagal memuat tutorial'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProgress = async () => {
+    if (!user) return;
+    console.log('Loading progress for tutorial:', tutorialId);
+    try {
+      const progress = await apiService.getTutorialProgress(tutorialId.toString());
+      if (progress) {
+        setCompletedSteps(progress.completedSteps || []);
+        setIsCompleted(progress.isCompleted || false);
+        const timeSpent = progress.timeSpent || 0;
+        console.log('Loaded timeSpent from database:', timeSpent);
+        totalTimeSpentRef.current = timeSpent;
+        setDisplayTime(timeSpent); // Initialize with total saved time
+      }
+    } catch (error) {
+      console.error('Failed to load progress:', error);
+    }
+  };
 
   useEffect(() => {
     loadProgress();
     addToLearning();
   }, [tutorialId, user]);
 
-  const loadProgress = async () => {
-    const progressKey = `progress_${user.email}_${tutorialId}`;
-    const saved = await AsyncStorage.getItem(progressKey);
-    if (saved) {
-      const { currentStep: s, completedSteps: c } = JSON.parse(saved);
-      setCurrentStep(s || 1);
-      setCompletedSteps(c || []);
-    }
-  };
-
   const saveProgress = async (step: number, completed: number[]) => {
-    const progressKey = `progress_${user.email}_${tutorialId}`;
-    await AsyncStorage.setItem(progressKey, JSON.stringify({ currentStep: step, completedSteps: completed }));
+    if (!user) return;
+    try {
+      await apiService.updateProgress(tutorialId.toString(), step, completed.includes(step));
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+      // Fallback to AsyncStorage
+      const progressKey = `progress_${user.email}_${tutorialId}`;
+      await AsyncStorage.setItem(progressKey, JSON.stringify({ currentStep: step, completedSteps: completed }));
+    }
   };
 
   const addToLearning = async () => {
@@ -170,6 +259,8 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
   };
 
   const handleNext = () => {
+    if (!tutorial) return;
+    const totalSteps = tutorial.steps?.length || 0;
     if (currentStep < totalSteps) {
       const next = currentStep + 1;
       setCurrentStep(next);
@@ -185,8 +276,10 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
     }
   };
 
-  const currentStepData = tutorial.steps[currentStep - 1];
+  const currentStepData = tutorial?.steps?.[currentStep - 1];
   const isStepCompleted = completedSteps.includes(currentStep);
+  const totalSteps = tutorial?.steps?.length || 0;
+  const progress = tutorial ? Math.round((completedSteps.length / totalSteps) * 100) : 0;
 
   const getDifficultyColor = (d: string) => {
     switch (d) {
@@ -197,7 +290,47 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
     }
   };
 
-  const diffColor = getDifficultyColor(tutorial.difficulty);
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}j ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const diffColor = tutorial ? getDifficultyColor(tutorial.difficulty) : { bg: '#f3f4f6', text: '#374151' };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#dc2626" />
+          <Text style={{ marginTop: 16, color: '#6b7280' }}>Memuat tutorial...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!tutorial) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
+            <MaterialIcons name="chevron-left" size={28} color="#374151" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Error</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <Text style={{ fontSize: 16, color: '#6b7280', textAlign: 'center' }}>Tutorial tidak ditemukan</Text>
+          <Button onPress={() => onNavigate('home')} style={{ marginTop: 16 }}>
+            <Text style={{ color: '#fff' }}>Kembali ke Beranda</Text>
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -205,22 +338,22 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => onNavigate('home')} style={styles.backBtn}>
-            <Text style={styles.backIcon}>‹</Text>
+            <MaterialIcons name="chevron-left" size={28} color="#374151" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{tutorial.title}</Text>
-            <Text style={styles.headerSub}>Langkah {currentStep}/{totalSteps} • {progress}%</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{tutorial.title || 'Tutorial'}</Text>
+            <Text style={styles.headerSub}>Langkah {currentStep}/{totalSteps} • {progress}% • {formatTime(displayTime)}</Text>
+              </View>
+            </View>
+            <Progress value={progress} height={4} />
           </View>
-        </View>
-        <Progress value={progress} height={4} />
-      </View>
 
       {/* Content */}
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Tutorial Info - step 1 only */}
         {currentStep === 1 && (
           <View style={styles.card}>
-            <ImageWithFallback src={tutorial.image} alt={tutorial.title} style={{ width: '100%', height: 192, borderRadius: 12 }} />
+            <ImageWithFallback src={tutorial.imageUrl} alt={tutorial.title} style={{ width: '100%', height: 192, borderRadius: 12 }} />
             <View style={{ padding: 16 }}>
               <View style={styles.tagRow}>
                 <Badge variant="secondary">{tutorial.category}</Badge>
@@ -232,11 +365,11 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
               <Text style={styles.tutorialDesc}>{tutorial.description}</Text>
 
               <View style={styles.divider} />
-              <Text style={styles.toolsTitle}>🔧 Alat yang Dibutuhkan</Text>
+              <Text style={styles.toolsTitle}><MaterialIcons name="build" size={16} color="#374151" /> Alat yang Dibutuhkan</Text>
               <View style={styles.tagRow}>
-                {tutorial.tools.map((tool: string, i: number) => (
+                {(tutorial.materials || []).map((material: any, i: number) => (
                   <View key={i} style={styles.toolChip}>
-                    <Text style={styles.toolChipText}>{tool}</Text>
+                    <Text style={styles.toolChipText}>{material.name}</Text>
                   </View>
                 ))}
               </View>
@@ -249,7 +382,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
           <View style={styles.stepHeader}>
             <View style={[styles.stepCircle, isStepCompleted ? styles.stepCircleComplete : styles.stepCircleActive]}>
               {isStepCompleted ? (
-                <Text style={styles.stepCircleText}>✓</Text>
+                <MaterialIcons name="check" size={16} color="#fff" />
               ) : (
                 <Text style={styles.stepCircleText}>{currentStep}</Text>
               )}
@@ -260,6 +393,10 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
           {currentStepData.imageUrl && (
             <ImageWithFallback src={currentStepData.imageUrl} alt={currentStepData.title} style={{ width: '100%', height: 192, borderRadius: 12, marginBottom: 16 }} />
           )}
+
+          {currentStepData.videoUrl ? (
+            <StepVideo uri={currentStepData.videoUrl} />
+          ) : null}
 
           <Text style={styles.stepContent}>{currentStepData.content}</Text>
 
@@ -276,7 +413,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
 
           {currentStepData.tips && (
             <View style={styles.tipsBox}>
-              <Text style={styles.tipsTitle}>💡 Tips</Text>
+              <Text style={styles.tipsTitle}><MaterialIcons name="lightbulb" size={16} color="#92400e" /> Tips</Text>
               <Text style={styles.tipsText}>{currentStepData.tips}</Text>
             </View>
           )}
@@ -302,7 +439,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
                     ]}
                   >
                     <Text style={[styles.stepIndicatorText, (isCurrent || isDone) && { color: '#fff' }]}>
-                      {isDone ? '✓' : stepNum}
+                      {isDone ? <MaterialIcons name="check" size={14} color="#fff" /> : stepNum}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -314,7 +451,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
         {/* Complete Step Button */}
         {!isStepCompleted && (
           <Button onPress={handleStepComplete} style={styles.completeBtn}>
-            <Text style={styles.completeBtnText}>✓ Tandai Langkah Ini Selesai</Text>
+            <Text style={styles.completeBtnText}><MaterialIcons name="check" size={16} color="#fff" /> Tandai Langkah Ini Selesai</Text>
           </Button>
         )}
 
@@ -322,7 +459,7 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
         {isCompleted && currentStep === totalSteps && (
           <View style={styles.completionCard}>
             <View style={styles.completionIcon}>
-              <Text style={{ fontSize: 32, color: '#fff' }}>✓</Text>
+              <MaterialIcons name="check-circle" size={32} color="#fff" />
             </View>
             <Text style={styles.completionTitle}>Tutorial Selesai!</Text>
             <Text style={styles.completionDesc}>Selamat! Anda telah menyelesaikan tutorial ini dengan baik.</Text>
@@ -336,10 +473,10 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <Button onPress={handlePrevious} disabled={currentStep === 1} variant="outline" style={{ flex: 1, height: 48 }}>
-          <Text style={{ color: currentStep === 1 ? '#9ca3af' : '#374151', fontWeight: '600' }}>‹ Sebelumnya</Text>
+          <Text style={{ color: currentStep === 1 ? '#9ca3af' : '#374151', fontWeight: '600' }}><MaterialIcons name="chevron-left" size={18} color="#374151" /> Sebelumnya</Text>
         </Button>
         <Button onPress={handleNext} disabled={currentStep === totalSteps} style={{ flex: 1, height: 48, backgroundColor: currentStep === totalSteps ? '#9ca3af' : '#dc2626' }}>
-          <Text style={{ color: '#fff', fontWeight: '600' }}>Selanjutnya ›</Text>
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Selanjutnya <MaterialIcons name="chevron-right" size={18} color="#fff" /></Text>
         </Button>
       </View>
     </SafeAreaView>
@@ -376,6 +513,9 @@ const styles = StyleSheet.create({
   tipsBox: { backgroundColor: '#fefce8', borderWidth: 1, borderColor: '#fde68a', borderRadius: 12, padding: 16, marginTop: 16 },
   tipsTitle: { fontWeight: '600', fontSize: 13, color: '#92400e', marginBottom: 4 },
   tipsText: { fontSize: 13, color: '#a16207' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statLabel: { fontSize: 14, color: '#6b7280' },
+  statValue: { fontSize: 14, fontWeight: '600', color: '#111827' },
   progressLabel: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 12 },
   stepIndicatorRow: { flexDirection: 'row', gap: 8 },
   stepIndicator: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' },
