@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 
 interface BottomNavigationProps {
@@ -11,9 +12,18 @@ interface BottomNavigationProps {
 
 export function BottomNavigation({ activeTab, onNavigate, user }: BottomNavigationProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.bottomNav, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+    <View style={[
+      styles.bottomNav, 
+      { 
+        backgroundColor: colors.card, 
+        borderTopColor: colors.border,
+        paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
+        height: 60 + (insets.bottom > 0 ? insets.bottom : 8)
+      }
+    ]}>
       <TouchableOpacity 
         style={styles.navItem} 
         onPress={() => onNavigate('home')}
@@ -76,7 +86,9 @@ const styles = StyleSheet.create({
     right: 0, 
     borderTopWidth: 1, 
     flexDirection: 'row', 
-    paddingVertical: 8 
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    minHeight: 60
   },
   navItem: { 
     flex: 1, 

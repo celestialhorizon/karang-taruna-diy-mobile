@@ -100,8 +100,8 @@ function AppContent() {
         />
       )}
       <Toast 
-        position="bottom"
-        bottomOffset={20}
+        position="top"
+        topOffset={30}
       />
     </SafeAreaProvider>
   );

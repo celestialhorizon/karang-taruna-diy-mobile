@@ -12,22 +12,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#DC2626',
+    backgroundColor: '#FFFFFF',
   },
   assetBundlePatterns: ['**/*'],
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#DC2626',
+      backgroundColor: '#FFFFFF',
     },
-    package: 'com.karangtaruna.diy',
+    package: 'com.karangtaruna_faisal_binus.diy', // Ganti dengan package name yang Anda inginkan
     // @ts-ignore
     usesCleartextTraffic: true,
+    networkSecurityConfig: './network-security-config.xml',
   },
   scheme: 'karangtaruna',
   extra: {
-    apiBaseUrlDev: process.env.API_BASE_URL_DEV || 'http://localhost:5000/api',
-    apiBaseUrlProd: process.env.API_BASE_URL_PROD || 'https://your-production-api.com/api',
+    apiBaseUrlDev: process.env.API_BASE_URL_DEV || 'http://192.168.1.32:5000/api',
+    apiBaseUrlProd: 'https://karang-taruna-diy-backend.onrender.com/api',
     eas: {
       projectId: '938b968f-b1b7-474c-8586-54b2cfd16eb3',
     },

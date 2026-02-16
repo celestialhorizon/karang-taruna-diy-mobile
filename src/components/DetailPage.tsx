@@ -345,6 +345,18 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
             <StepVideo uri={currentStepData.videoUrl} />
           ) : null}
 
+          {/* Step Description */}
+          {currentStepData.description && (
+            <View style={styles.descriptionBox}>
+              <Text style={[styles.descriptionTitle, { color: colors.text }]}>
+                <MaterialIcons name="check-circle" size={16} color="#22c55e" /> Deskripsi Langkah
+              </Text>
+              <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
+                {currentStepData.description}
+              </Text>
+            </View>
+          )}
+
           <Text style={[styles.stepContent, { color: colors.textSecondary }]}>{currentStepData.content}</Text>
 
           {currentStepData.details && currentStepData.details.length > 0 && (
@@ -362,6 +374,15 @@ export function DetailPage({ tutorialId, user, onNavigate }: DetailPageProps) {
             <View style={styles.tipsBox}>
               <Text style={styles.tipsTitle}><MaterialIcons name="lightbulb" size={16} color="#92400e" /> Tips</Text>
               <Text style={styles.tipsText}>{currentStepData.tips}</Text>
+            </View>
+          )}
+
+          {currentStepData.safetyNote && (
+            <View style={styles.safetyBox}>
+              <Text style={styles.safetyTitle}>
+                <MaterialIcons name="warning" size={16} color="#d97706" /> Catatan Keselamatan:
+              </Text>
+              <Text style={styles.safetyText}>{currentStepData.safetyNote}</Text>
             </View>
           )}
         </View>
@@ -467,6 +488,12 @@ const styles = StyleSheet.create({
   tipsBox: { backgroundColor: '#fefce8', borderWidth: 1, borderColor: '#fde68a', borderRadius: 12, padding: 16, marginTop: 16 },
   tipsTitle: { fontWeight: '600', fontSize: 13, color: '#92400e', marginBottom: 4 },
   tipsText: { fontSize: 13, color: '#a16207' },
+  descriptionBox: { backgroundColor: 'transparent', borderRadius: 12, padding: 16, marginTop: 16, borderWidth: 1, borderColor: '#e5e7eb' },
+  descriptionTitle: { fontWeight: '600', fontSize: 14, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  descriptionText: { fontSize: 14, lineHeight: 20 },
+  safetyBox: { backgroundColor: '#fef3c7', borderWidth: 1, borderColor: '#fbbf24', borderRadius: 12, padding: 16, marginTop: 16 },
+  safetyTitle: { fontWeight: '600', fontSize: 13, color: '#d97706', marginBottom: 4, flexDirection: 'row', alignItems: 'center' },
+  safetyText: { fontSize: 13, color: '#92400e' },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statLabel: { fontSize: 14, color: '#6b7280' },
   statValue: { fontSize: 14, fontWeight: '600', color: '#111827' },
