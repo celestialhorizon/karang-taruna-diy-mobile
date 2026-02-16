@@ -41,6 +41,7 @@ export function HomePage({ user, onNavigate, onLogout, initialTab = 'home' }: Ho
   const [tutorials, setTutorials] = useState<Tutorial[]>([]);
   const [filteredTutorials, setFilteredTutorials] = useState<Tutorial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
@@ -91,11 +92,13 @@ export function HomePage({ user, onNavigate, onLogout, initialTab = 'home' }: Ho
 
   const loadTutorials = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const data = await apiService.getTutorials();
       setTutorials(data);
     } catch (error) {
       console.error('Failed to load tutorials:', error);
+      setError('Gagal memuat tutorials. Silakan coba lagi.');
       setTutorials([]);
     } finally {
       setIsLoading(false);
@@ -512,6 +515,58 @@ export function HomePage({ user, onNavigate, onLogout, initialTab = 'home' }: Ho
           <View style={{ alignItems: 'center', paddingVertical: 48 }}>
             <ActivityIndicator size="large" color="#dc2626" />
             <Text style={{ marginTop: 16, color: colors.textSecondary }}>Memuat tutorials...</Text>
+          </View>
+        ) : error ? (
+          <View style={{ alignItems: 'center', paddingVertical: 48, paddingHorizontal: 20 }}>
+            <View style={{ 
+              width: 64, 
+              height: 64, 
+              backgroundColor: '#fef2f2', 
+              borderRadius: 32, 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              marginBottom: 16 
+            }}>
+              <MaterialIcons name="error-outline" size={32} color="#dc2626" />
+            </View>
+            <Text style={{ 
+              fontSize: 18, 
+              fontWeight: '600', 
+              color: colors.text, 
+              textAlign: 'center',
+              marginBottom: 8 
+            }}>
+              Gagal Memuat Data
+            </Text>
+            <Text style={{ 
+              fontSize: 14, 
+              color: colors.textSecondary, 
+              textAlign: 'center',
+              marginBottom: 20,
+              lineHeight: 20 
+            }}>
+              {error}
+            </Text>
+            <TouchableOpacity 
+              onPress={loadTutorials}
+              style={{ 
+                backgroundColor: '#dc2626', 
+                paddingHorizontal: 24, 
+                paddingVertical: 12, 
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}
+            >
+              <MaterialIcons name="refresh" size={18} color="white" />
+              <Text style={{ 
+                color: 'white', 
+                fontWeight: '600',
+                marginLeft: 8 
+              }}>
+                Coba Lagi
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : filteredAndSortedTutorials.length > 0 ? (
           filteredAndSortedTutorials.map((tutorial) => {
